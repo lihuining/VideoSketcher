@@ -42,10 +42,14 @@ class RunConfig:
     load_latents: bool = True
     # Number of steps to skip in the denoising process (used value from original edit-friendly DDPM paper)
     skip_steps: int = 32
+    # gamma context preservation
+    gamma: float = 0.75
+    # temperature rescale attention map
+    temperature: float = 1.0 # 1.5
 
     def __post_init__(self):
         save_name = f'app={self.app_image_path.stem}---struct={self.struct_image_path.stem}'
-        self.output_path = self.output_path / self.domain_name / save_name
+        self.output_path = Path(self.output_path) / self.domain_name / save_name
         self.output_path.mkdir(parents=True, exist_ok=True)
 
         # Handle the domain name, prompt, and object nouns used for masking, etc.
@@ -63,3 +67,11 @@ class RunConfig:
         self.latents_path.mkdir(parents=True, exist_ok=True)
         self.app_latent_save_path = self.latents_path / f"{self.app_image_path.stem}.pt"
         self.struct_latent_save_path = self.latents_path / f"{self.struct_image_path.stem}.pt"
+        # define the paths to visualize the attention map
+        self.cross_attention = self.latents_path = Path(self.output_path) / "cross_attention"
+        self.cross_attention.mkdir(parents=True, exist_ok=True)
+        
+        self.self_attention = self.latents_path = Path(self.output_path) / "self_attention"
+        self.self_attention.mkdir(parents=True, exist_ok=True)
+        
+        

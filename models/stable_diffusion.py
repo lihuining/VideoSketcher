@@ -69,7 +69,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
         elif prompt is not None and isinstance(prompt, list):
-            batch_size = len(prompt)
+            batch_size = len(prompt) # 3
         else:
             batch_size = prompt_embeds.shape[0]
 
@@ -92,13 +92,13 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
             prompt_embeds=prompt_embeds,
             negative_prompt_embeds=negative_prompt_embeds,
             lora_scale=text_encoder_lora_scale,
-        )
+        ) # (3,77,768)
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
-        timesteps = self.scheduler.timesteps
-        t_to_idx = {int(v): k for k, v in enumerate(timesteps[-zs[0].shape[0]:])}
-        timesteps = timesteps[-zs[0].shape[0]:]
+        timesteps = self.scheduler.timesteps # (68,)
+        t_to_idx = {int(v): k for k, v in enumerate(timesteps[-zs[0].shape[0]:])} # key:t ,value:idx {1:67,11:66}
+        timesteps = timesteps[-zs[0].shape[0]:] # 671~1
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels
@@ -111,15 +111,15 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
             device,
             generator,
             latents,
-        )
+        ) # (3,4,64,64)
 
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
 
-        op = tqdm(timesteps[-zs[0].shape[0]:])
-        n_timesteps = len(timesteps[-zs[0].shape[0]:])
+        op = tqdm(timesteps[-zs[0].shape[0]:]) # 68
+        n_timesteps = len(timesteps[-zs[0].shape[0]:]) # 68
 
-        count = 0
+        count = 0 # 统计到目前为止的step数
         for t in op:
             i = t_to_idx[int(t)]
 
@@ -141,15 +141,15 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
                 cross_attention_kwargs={'perform_swap': False},
                 return_dict=False,
             )[0]
-
+            # torch.equal(noise_pred_swap,noise_pred_no_swap)
             # perform guidance
             if do_classifier_free_guidance:
                 _, noise_swap_pred_text = noise_pred_swap.chunk(2)
                 noise_no_swap_pred_uncond, _ = noise_pred_no_swap.chunk(2)
                 noise_pred = noise_no_swap_pred_uncond + guidance_scale * (
                         noise_swap_pred_text - noise_no_swap_pred_uncond)
-            else:
-                is_cross_image_step = cross_image_attention_range.start <= i <= cross_image_attention_range.end
+            else: # 范围为cross_attn_32_range和cross_attn_64_range 并集
+                is_cross_image_step = cross_image_attention_range.start <= i <= cross_image_attention_range.end # (10,90)
                 if swap_guidance_scale > 1.0 and is_cross_image_step:
                     swapping_strengths = np.linspace(swap_guidance_scale,
                                                      max(swap_guidance_scale / 2, 1.0),
@@ -163,7 +163,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
             latents = torch.stack([
                 self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents[latent_idx], t, noise_pred[latent_idx], eta)
                 for latent_idx in range(latents.shape[0])
-            ])
+            ]) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
 
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
@@ -174,7 +174,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
             count += 1
 
         if not output_type == "latent":
-            image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
+            image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0] # (3,3,512,512)
             image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
         else:
             image = latents
@@ -185,7 +185,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
         else:
             do_denormalize = [not has_nsfw for has_nsfw in has_nsfw_concept]
 
-        image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
+        image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize) # list:3 pil
 
         # Offload last model to CPU
         if hasattr(self, "final_offload_hook") and self.final_offload_hook is not None:
@@ -197,7 +197,10 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
 
     def perform_ddpm_step(self, t_to_idx, zs, latents, t, noise_pred, eta):
-        idx = t_to_idx[int(t)]
+        '''
+        论文：DDIM
+        '''
+        idx = t_to_idx[int(t)] # time:671 idx:0
         z = zs[idx] if not zs is None else None
         # 1. get previous step value (=t-1)
         prev_timestep = t - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps
@@ -209,7 +212,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
         # 3. compute predicted original sample from predicted noise also called
         # "predicted x_0" of formula (12) from https://arxiv.org/pdf/2010.02502.pdf
         pred_original_sample = (latents - beta_prod_t ** (0.5) * noise_pred) / alpha_prod_t ** (0.5)
-        # 5. compute variance: "sigma_t(η)" -> see formula (16)
+        # 5. compute variance: "sigma_t(η)" -> see formula (16) DDIM
         # σ_t = sqrt((1 − α_t−1)/(1 − α_t)) * sqrt(1 − α_t/α_t−1)
         # variance = self.scheduler._get_variance(timestep, prev_timestep)
         variance = self.get_variance(t)

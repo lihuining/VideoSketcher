@@ -1,0 +1,33 @@
+sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
+
+model_key: "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
+input_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/tea-pour.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
+work_dir: "outputs/tea-pour-debug"
+
+height: 512
+width: 512
+
+inversion:
+  prompt: "a tea pot pouring tea into a cup."
+  save_intermediate: True # use pnp
+  force: True
+  n_frames: 15 # debug 10 frames for debug
+
+generation:
+  chunk_size: 2
+  control: "cross_attention"
+  control_scale: 1.0
+  prompt:
+#    vector: "vector illustration of a tea pot pouring tea into a cup."
+    vector_pnp: "sketch in black and white,line drawing illustration of a tea pot pouring tea into a cup."
+
+  # VidToMe args. See details in "src/vidtome/patch.py, apply_patch()"
+  local_merge_ratio: 0.95
+  global_merge_ratio: 0.9
+  global_rand: 0.1
+
+  frame_range: [10] # [64]
+#  frame_ids: 20 # debug  需要使用列表
+
+base_config: configs/default.yaml
+#enable_xformers_memory_efficient_attention: False
