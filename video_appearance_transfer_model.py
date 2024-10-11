@@ -1,7 +1,4 @@
 from typing import List, Optional, Callable
-
-from setuptools.sandbox import save_path
-
 from utils import load_video, prepare_depth, save_frames, control_preprocess
 import torch
 import torch.nn.functional as F

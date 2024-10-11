@@ -354,7 +354,7 @@ class Inverter(nn.Module):
 
         torch.save(xts[:,idx], os.path.join(save_path, f'noisy_latents_{t.item()}.pt'))
         if not zs is None:
-            zs[-1] = torch.zeros_like(zs[-1])
+            zs[:,-1] = torch.zeros_like(zs[:,-1])
 
         return xt, zs, xts
     def inversion_forward_process(self,frame_id, x0,save_path,
@@ -443,7 +443,7 @@ class Inverter(nn.Module):
 
         torch.save(xts[idx], os.path.join(save_path, f'noisy_latents_{t.item()}.pt'))
         if not zs is None:
-            zs[-1] = torch.zeros_like(zs[-1])
+            zs[-1] = torch.zeros_like(zs[-1]) # the last timestep is zero
         # pth = os.path.join(save_path, f'noisy_ddpm_{frame_id}.pt')
         # torch.save(zs, pth)
         # print(f"[INFO] inverted latent saved to: {pth}")
@@ -758,11 +758,11 @@ class Inverter(nn.Module):
                 recon_save_path = os.path.join(save_path, 'recon_frames')
                 save_frames(recon_frames, recon_save_path)
 
-            self.content_init, self.content_noise = self.load_latent(self.config.app_image_save_path, choice="style")
-            latent_reconstruction, _ = self.inversion_reverse_process(xT=self.content_init, etas=1,
-                                                                      prompts=[self.prompt], cfg_scales=[3.5],
-                                                                      prog_bar=True,
-                                                                      zs=self.content_noise)
+            # self.content_init, self.content_noise = self.load_latent(self.config.app_image_save_path, choice="style")
+            # latent_reconstruction, _ = self.inversion_reverse_process(xT=self.content_init, etas=1,
+            #                                                           prompts=[self.prompt], cfg_scales=[3.5],
+            #                                                           prog_bar=True,
+            #                                                           zs=self.content_noise)
             torch.cuda.empty_cache()
             recon_frames = self.decode_latents(latent_reconstruction)
             recon_save_path = os.path.join(save_path, 'recon_frames')
@@ -790,25 +790,27 @@ class Inverter(nn.Module):
                                                          cfg_scale=3.5)  # 单帧frame_id = 0
             # # wt:[10,4,64,64],wts: [10,101,4,64,64] torch.equal(wts[:,self.skip_steps],self.content_init)
             # # zs:[10,100,4,64,64)
-            # if self.recon:
-            #     latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=wts[:,self.skip_steps], etas=1,
-            #                                                               prompts=[self.prompt], cfg_scales=[3.5],
-            #                                                               prog_bar=True,
-            #                                                               zs=zs[:,self.skip_steps:])
-            #     torch.cuda.empty_cache()
-            #     recon_frames = self.decode_latents_batch(latent_reconstruction)
-            #     recon_save_path = os.path.join(save_path, 'recon_frames_batch')
-            #     save_frames(recon_frames, recon_save_path)
+            if self.recon:
+                latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=wts[:,self.skip_steps], etas=1,
+                                                                          prompts=[self.prompt], cfg_scales=[3.5],
+                                                                          prog_bar=True,
+                                                                          zs=zs[:,self.skip_steps:])
+                torch.cuda.empty_cache()
+                recon_frames = self.decode_latents_batch(latent_reconstruction)
+                recon_save_path = os.path.join(save_path, 'recon_frames_batch')
+                save_frames(recon_frames, recon_save_path)
             # torch.equal(zs[:,self.skip_steps:],self.content_noise) 最后一个frame不一样
-            self.content_init,self.content_noise = self.load_latent(self.config.inversion.save_path,choice="content")
-            latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.content_init, etas=1,
-                                                                            prompts=[self.prompt], cfg_scales=[3.5],
-                                                                            prog_bar=True,
-                                                                            zs=self.content_noise)
-            torch.cuda.empty_cache()
-            recon_frames = self.decode_latents_batch(latent_reconstruction)
-            recon_save_path = os.path.join(save_path, 'recon_frames_batch_load')
-            save_frames(recon_frames, recon_save_path)
+            # self.content_init,self.content_noise = self.load_latent(self.config.inversion.save_path,choice="content")
+            # latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.content_init, etas=1,
+            #                                                                 prompts=[self.prompt], cfg_scales=[3.5],
+            #                                                                 prog_bar=True,
+            #                                                                 zs=self.content_noise)
+            # torch.cuda.empty_cache()
+            # recon_frames = self.decode_latents_batch(latent_reconstruction)
+            # recon_save_path = os.path.join(save_path, 'recon_frames_batch_load')
+            # save_frames(recon_frames, recon_save_path)
+
+
             # zs_batch = []
             # wts_batch = []
             # latent_reconstruction_list = []
@@ -855,8 +857,8 @@ if __name__ == "__main__":
 
     seed_everything(config.seed)
     inversion = Inverter(pipe, pipe.scheduler, config,cross_image_config)
-    # inversion(config.input_path, config.inversion.save_path)
-    inversion(cross_image_config.app_image_path, config.app_image_save_path)
+    inversion(config.input_path, config.inversion.save_path)
+    # inversion(cross_image_config.app_image_path, config.app_image_save_path)
 '''
 python invert.py --config configs/tea-pour-debug.yaml
 recon_frames = self.decode_latents_batch(xts[:,-1,])
