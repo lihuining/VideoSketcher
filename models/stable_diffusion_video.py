@@ -53,7 +53,8 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             swap_guidance_scale: float = 1.0,
             cross_image_attention_range: Range = Range(10, 90),
             # DDPM addition
-            zs: Optional[List[torch.Tensor]] = None
+            zs: Optional[List[torch.Tensor]] = None,
+            perform_cross_frame: bool = True,
     ):
 
         # 0. Default height and width to unet
@@ -132,14 +133,14 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': True},
+                cross_attention_kwargs={'perform_swap': True,'perform_cross_frame': perform_cross_frame},
                 return_dict=False,
             )[0]
             noise_pred_no_swap = self.unet(
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': False},
+                cross_attention_kwargs={'perform_swap': False,'perform_cross_frame': perform_cross_frame},
                 return_dict=False,
             )[0]
             # torch.equal(noise_pred_swap,noise_pred_no_swap)
@@ -160,25 +161,28 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_swap, guidance_rescale=guidance_rescale)
                 else:
                     noise_pred = noise_pred_swap
-            b,c,h,w = latents.shape
-            latents = latents.reshape(chunk_size,-1,c,h,w) # (4,3,4,64,64)
-            noise_pred = noise_pred.reshape(chunk_size,-1,c,h,w)
-            # latents = torch.stack([
-            #     self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents[latent_idx], t, noise_pred[latent_idx], eta)
-            #     for latent_idx in range(latents.shape[0])
-            # ]) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            # b,c,h,w = latents.shape
+            # latents = latents.reshape(chunk_size,-1,c,h,w) # (4,3,4,64,64)
+            # noise_pred = noise_pred.reshape(chunk_size,-1,c,h,w)
+            # # latents = torch.stack([
+            # #     self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents[latent_idx], t, noise_pred[latent_idx], eta)
+            # #     for latent_idx in range(latents.shape[0])
+            # # ]) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            # latents = torch.cat([
+            #     self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents[:,latent_idx], t, noise_pred[:,latent_idx], eta)
+            #     for latent_idx in range(latents.shape[1])
+            # ],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            # latents = latents.reshape(b,c,h,w)
+            # noise_pred = noise_pred.reshape(b,c,h,w)
 
-
+            b, c, h, w = latents.shape
+            # latents = latents.reshape(-1,chunk_size, c, h, w)  # (3,4,4,64,64)
+            latents_list  = torch.split(latents, [chunk_size]*3, dim=0) # content1, style, content2 保持了原来的顺序和数据内容
+            noise_pred_list = torch.split(noise_pred, [chunk_size]*3, dim=0)
             latents = torch.cat([
-                self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents[:,latent_idx], t, noise_pred[:,latent_idx], eta)
-                for latent_idx in range(latents.shape[1])
+                self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t, noise_pred_list[latent_idx], eta)
+                for latent_idx in range(len(noise_pred_list))
             ],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
-            latents = latents.reshape(b,c,h,w)
-            noise_pred = noise_pred.reshape(b,c,h,w)
-
-
-
-
 
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
