@@ -309,7 +309,9 @@ def prepare_depth_map(model, image, depth_map=None, batch_size=1, do_classifier_
 
 def get_latents_dir(latents_path, model_key):
     model_key = model_key.split("/")[-1]
-    return os.path.join(latents_path, model_key)
+    data_dir = os.path.join(latents_path, model_key)
+    os.makedirs(data_dir,exist_ok=True)
+    return data_dir
 
 
 def get_controlnet_kwargs(controlnet, x, cond, t, controlnet_cond, controlnet_scale=1.0):

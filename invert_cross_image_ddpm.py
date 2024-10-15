@@ -1,4 +1,5 @@
-
+from pathlib import Path
+from cross_image_utils.latent_utils import load_latents, load_noise
 import torch.nn as nn
 import torch
 from tqdm import tqdm
@@ -349,7 +350,10 @@ class Inverter(nn.Module):
                         if idx+ 1 < len(idx_to_t):
                             torch.save(xtm1, os.path.join(save_path, f'noisy_latents_{idx_to_t[idx+1]}.pt'))
                         pth = os.path.join(save_path, f'noisy_ddpm_{t.item()}.pt')
-                        torch.save(z, pth)
+                        if idx != len(timesteps)-1:
+                            torch.save(z, pth)
+                        else:
+                            torch.save(torch.zeros_like(z), pth)
                         print(f"[INFO] inverted latent saved to: {pth}")
 
         torch.save(xts[:,idx], os.path.join(save_path, f'noisy_latents_{t.item()}.pt'))
@@ -434,11 +438,15 @@ class Inverter(nn.Module):
                         if idx+ 1 < len(idx_to_t):
                             torch.save(xtm1, os.path.join(save_path, f'noisy_latents_{idx_to_t[idx+1]}.pt'))
                         latents_path = os.path.join(save_path, f'noisy_latents_{t}.pt')
-                        if not os.path.isfile(latents_path):
-                            torch.save(xtm1, latents_path)
+                        # if not os.path.isfile(latents_path):
+                        torch.save(xtm1, latents_path)
                         pth = os.path.join(save_path, f'noisy_ddpm_{t}.pt')
-                        if not os.path.isfile(pth):
+                        # if not os.path.isfile(pth):
+                        # torch.save(z, pth)
+                        if idx != len(timesteps)-1:
                             torch.save(z, pth)
+                        else:
+                            torch.save(torch.zeros_like(z), pth)
                         print(f"[INFO] inverted latent saved to: {pth}")
 
         torch.save(xts[idx], os.path.join(save_path, f'noisy_latents_{t.item()}.pt'))
@@ -725,6 +733,30 @@ class Inverter(nn.Module):
         #         return False
         return True
 
+    def set_latents(self, latents_app: torch.Tensor, latents_struct: torch.Tensor):
+        self.latents_app = latents_app
+        self.latents_struct = latents_struct
+
+    def set_noise(self, zs_app: torch.Tensor, zs_struct: torch.Tensor):
+        self.zs_app = zs_app
+        self.zs_struct = zs_struct
+    def load_single_image_init(self):
+        print("Loading existing latents...")
+        self.cross_image_config.app_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
+        self.cross_image_config.struct_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
+        latents_app, latents_struct = load_latents(self.cross_image_config.app_latent_save_path, self.cross_image_config.struct_latent_save_path)
+        noise_app, noise_struct = load_noise(self.cross_image_config.app_latent_save_path, self.cross_image_config.struct_latent_save_path)
+        self.set_latents(latents_app, latents_struct)
+        self.set_noise(noise_app, noise_struct)
+        # init_latents, init_zs = latent_utils.get_init_latents_and_noises(model=model, cfg=cfg)
+        if self.latents_struct.dim() == 4 and self.latents_app.dim() == 4 and self.latents_app.shape[0] > 1:
+            self.latents_struct = self.latents_struct[self.cross_image_config.skip_steps] # torch.equal(self.content_init[0],self.latents_struct)
+            self.latents_app = self.latents_app[self.cross_image_config.skip_steps] # torch.equal(self.latents_app.unsqueeze(0),self.style_init)
+        self.init_latents = torch.stack(
+            [self.latents_struct, self.latents_app, self.latents_struct])  # torch.Size([3, 4, 64, 64])
+        self.init_zs = [self.zs_struct[self.cross_image_config.skip_steps:].unsqueeze(0),
+                        self.zs_app[self.cross_image_config.skip_steps:].unsqueeze(0),
+                        self.zs_struct[self.cross_image_config.skip_steps:].unsqueeze(0)]  # list:3,torch.Size([1,68, 4, 64, 64])
 
     @torch.no_grad()
     def __call__(self, data_path, save_path):
@@ -749,20 +781,20 @@ class Inverter(nn.Module):
             print(f"[INFO] clean latents shape: {latents.shape}")
 
 
-            wt, zs, wts = self.inversion_forward_process(x0=latents,save_path= save_path,frame_id=0,etas=1,prog_bar=True,prompt=self.prompt,cfg_scale=3.5) # 单帧frame_id = 0
-            if self.recon:
-                latent_reconstruction, _ = self.inversion_reverse_process(xT=wts[self.skip_steps], etas=1,prompts=[self.prompt] ,cfg_scales=[3.5], prog_bar=True,
-                                                  zs=zs[self.skip_steps:])
-                torch.cuda.empty_cache()
-                recon_frames = self.decode_latents(latent_reconstruction)
-                recon_save_path = os.path.join(save_path, 'recon_frames')
-                save_frames(recon_frames, recon_save_path)
+            # wt, zs, wts = self.inversion_forward_process(x0=latents,save_path= save_path,frame_id=0,etas=1,prog_bar=True,prompt=self.prompt,cfg_scale=3.5) # 单帧frame_id = 0
+            # if self.recon:
+            #     latent_reconstruction, _ = self.inversion_reverse_process(xT=wts[self.skip_steps], etas=1,prompts=[self.prompt] ,cfg_scales=[3.5], prog_bar=True,
+            #                                       zs=zs[self.skip_steps:])
+            #     torch.cuda.empty_cache()
+            #     recon_frames = self.decode_latents(latent_reconstruction)
+            #     recon_save_path = os.path.join(save_path, 'recon_frames')
+            #     save_frames(recon_frames, recon_save_path)
 
-            # self.content_init, self.content_noise = self.load_latent(self.config.app_image_save_path, choice="style")
-            # latent_reconstruction, _ = self.inversion_reverse_process(xT=self.content_init, etas=1,
-            #                                                           prompts=[self.prompt], cfg_scales=[3.5],
-            #                                                           prog_bar=True,
-            #                                                           zs=self.content_noise)
+            self.content_init, self.content_noise = self.load_latent(self.config.app_image_save_path, choice="style")
+            latent_reconstruction, _ = self.inversion_reverse_process(xT= self.content_init, etas=1,
+                                                                      prompts=[self.prompt], cfg_scales=[3.5],
+                                                                      prog_bar=True,
+                                                                      zs=self.content_noise)
             torch.cuda.empty_cache()
             recon_frames = self.decode_latents(latent_reconstruction)
             recon_save_path = os.path.join(save_path, 'recon_frames')
@@ -785,32 +817,42 @@ class Inverter(nn.Module):
             latents = self.encode_imgs_batch(frames)
             torch.cuda.empty_cache()
             print(f"[INFO] clean latents shape: {latents.shape}")
-            wt, zs, wts = self.inversion_forward_process_batch(x0=latents, save_path=save_path, etas=1,
-                                                         prog_bar=True, prompt=self.prompt,
-                                                         cfg_scale=3.5)  # 单帧frame_id = 0
-            # # wt:[10,4,64,64],wts: [10,101,4,64,64] torch.equal(wts[:,self.skip_steps],self.content_init)
-            # # zs:[10,100,4,64,64)
-            if self.recon:
-                latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=wts[:,self.skip_steps], etas=1,
-                                                                          prompts=[self.prompt], cfg_scales=[3.5],
-                                                                          prog_bar=True,
-                                                                          zs=zs[:,self.skip_steps:])
-                torch.cuda.empty_cache()
-                recon_frames = self.decode_latents_batch(latent_reconstruction)
-                recon_save_path = os.path.join(save_path, 'recon_frames_batch')
-                save_frames(recon_frames, recon_save_path)
+            # wt, zs, wts = self.inversion_forward_process_batch(x0=latents, save_path=save_path, etas=1,
+            #                                              prog_bar=True, prompt=self.prompt,
+            #                                              cfg_scale=3.5)  # 单帧frame_id = 0
+            # # # wt:[10,4,64,64],wts: [10,101,4,64,64] torch.equal(wts[:,self.skip_steps],self.content_init)
+            # # # zs:[10,100,4,64,64)
+            # if self.recon:
+            #     latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=wts[:,self.skip_steps], etas=1,
+            #                                                               prompts=[self.prompt], cfg_scales=[3.5],
+            #                                                               prog_bar=True,
+            #                                                               zs=zs[:,self.skip_steps:])
+            #     torch.cuda.empty_cache()
+            #     recon_frames = self.decode_latents_batch(latent_reconstruction)
+            #     recon_save_path = os.path.join(save_path, 'recon_frames_batch')
+            #     save_frames(recon_frames, recon_save_path)
             # torch.equal(zs[:,self.skip_steps:],self.content_noise) 最后一个frame不一样
-            # self.content_init,self.content_noise = self.load_latent(self.config.inversion.save_path,choice="content")
-            # latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.content_init, etas=1,
-            #                                                                 prompts=[self.prompt], cfg_scales=[3.5],
-            #                                                                 prog_bar=True,
-            #                                                                 zs=self.content_noise)
-            # torch.cuda.empty_cache()
-            # recon_frames = self.decode_latents_batch(latent_reconstruction)
-            # recon_save_path = os.path.join(save_path, 'recon_frames_batch_load')
-            # save_frames(recon_frames, recon_save_path)
+            ## load saved pt file
+            self.content_init,self.content_noise = self.load_latent(self.config.inversion.save_path,choice="content") # (5,4,64,64) (5,68,4,64,64)
+            latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.content_init, etas=1,
+                                                                            prompts=[self.prompt], cfg_scales=[3.5], # 3.5
+                                                                            prog_bar=True,
+                                                                            zs=self.content_noise)
+            torch.cuda.empty_cache()
+            recon_frames = self.decode_latents_batch(latent_reconstruction)
+            recon_save_path = os.path.join(save_path, 'recon_frames_batch_load_cfg1.0')
+            save_frames(recon_frames, recon_save_path)
 
-
+            ## cross-image-attention single frame load
+            self.load_single_image_init()
+            latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.latents_struct.unsqueeze(0), etas=1,
+                                                                            prompts=[self.prompt], cfg_scales=[3.5],
+                                                                            prog_bar=True,
+                                                                            zs=self.zs_struct[self.skip_steps:].unsqueeze(0))
+            torch.cuda.empty_cache()
+            recon_frames = self.decode_latents_batch(latent_reconstruction)
+            recon_save_path = os.path.join(save_path, 'recon_frames_cross_image_1st_frame_cfg3.5')
+            save_frames(recon_frames, recon_save_path)
             # zs_batch = []
             # wts_batch = []
             # latent_reconstruction_list = []
@@ -848,7 +890,7 @@ class Inverter(nn.Module):
 
 if __name__ == "__main__":
     config,cross_image_config = load_config()
-    pipe = get_stable_diffusion_model() # ???
+    pipe,model_key = get_stable_diffusion_model() # ???
 
     # pipe, scheduler, model_key = init_model(
     #     config.device, config.sd_version, config.model_key, config.inversion.control, config.float_precision)
@@ -858,7 +900,7 @@ if __name__ == "__main__":
     seed_everything(config.seed)
     inversion = Inverter(pipe, pipe.scheduler, config,cross_image_config)
     inversion(config.input_path, config.inversion.save_path)
-    # inversion(cross_image_config.app_image_path, config.app_image_save_path)
+    inversion(cross_image_config.app_image_path, config.app_image_save_path)
 '''
 python invert.py --config configs/tea-pour-debug.yaml
 recon_frames = self.decode_latents_batch(xts[:,-1,])

@@ -1,6 +1,6 @@
 sd_version: "2.1" # In ['2.1', '2.0', '1.5', 'depth']
-input_path: "data/dog.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
-work_dir: "outputs/dog"
+input_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/dog-walking.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
+work_dir: "outputs/dog_walking"
 
 height: 512
 width: 512
@@ -11,7 +11,7 @@ inversion:
   steps: 50
   save_intermediate: True # Save intermediate latents. Required when using PnP.
   save_steps: 50
-  n_frames: 32
+  n_frames: 5 # 32
 
 generation:
   control: "pnp"

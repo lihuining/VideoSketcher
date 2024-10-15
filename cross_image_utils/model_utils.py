@@ -20,4 +20,7 @@ def get_stable_diffusion_model(choice="video") -> CrossImageAttentionStableDiffu
     pipe.unet = FreeUUNet2DConditionModel.from_pretrained(model_id, subfolder="unet").to(device)
     pipe.scheduler = DDIMScheduler.from_config(model_id, subfolder="scheduler")
     print("Done.")
-    return pipe
+    if choice == "video":
+        return pipe,model_id
+    else:
+        return pipe

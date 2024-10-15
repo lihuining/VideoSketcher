@@ -38,14 +38,18 @@ def run(cfg: RunConfig) -> List[Image.Image]:
 
 
 def run_appearance_transfer(model: AppearanceTransferModel, cfg: RunConfig) -> List[Image.Image]:
-    init_latents, init_zs = latent_utils.get_init_latents_and_noises(model=model, cfg=cfg) # [out,app,struct]
+    #init_latents, init_zs = latent_utils.get_init_latents_and_noises(model=model, cfg=cfg) # [out,app,struct]
+    init_latents, init_zs = latent_utils.get_init_latents_and_noises_video1frame(model=model, cfg=cfg) # [out,app,struct]
+
     # init_latents:init_latents = torch.stack([model.latents_struct, model.latents_app, model.latents_struct]) torch.Size([3, 4, 64, 64])
     # init_zs: list:3,torch.Size([68, 4, 64, 64])
     model.pipe.scheduler.set_timesteps(cfg.num_timesteps)
     model.enable_edit = True  # Activate our cross-image attention layers
+    model.perform_cross_frame = True
     start_step = min(cfg.cross_attn_32_range.start, cfg.cross_attn_64_range.start) # 10
     end_step = max(cfg.cross_attn_32_range.end, cfg.cross_attn_64_range.end) # 90
     images = model.pipe(
+        chunk_size = 1,
         prompt=[cfg.prompt] * 3,
         latents=init_latents,
         guidance_scale=1.0,
@@ -63,24 +67,38 @@ def run_appearance_transfer(model: AppearanceTransferModel, cfg: RunConfig) -> L
     images[2].save(cfg.output_path / f"out_struct_seed_{cfg.seed}.png")
     joined_images = np.concatenate(images[::-1], axis=1)
     Image.fromarray(joined_images).save(cfg.output_path / f"out_joined_seed_{cfg.seed}.png")
+    timesteps = model.pipe.scheduler.timesteps[cfg.skip_steps:]
     return images
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
     main()
 '''
 --app_image_path
-/media/allenyljiang/564AFA804AFA5BE51/Codes/mixsa/data/style_sketch/ref_sample3.jpg
+/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png
 --struct_image_path
-/media/allenyljiang/564AFA804AFA5BE51/Codes/mixsa/data/ref2sketch_dataset/Em8CEBGVcAEGlt6.jfif
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/tea-pour/000000.png
 --domain_name
 animal
 --use_masked_adain
-True
+False
 --contrast_strength
 1.67
 --swap_guidance_scale
 1.0
 --gamma
 0.75
+--prompt "a tea pot pouring tea into a cup."
 '''

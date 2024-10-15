@@ -53,7 +53,7 @@ class Segmentor:
 
         style_attn = self_attn[STYLE_INDEX].mean(dim=0).cpu().numpy()
         style_kmeans = KMeans(n_clusters=self.num_segments, n_init=10).fit(style_attn)
-        style_clusters = style_kmeans.labels_.reshape(res, res)
+        style_clusters = style_kmeans.labels_.reshape(res, res) # (32,32)
 
         struct_attn = self_attn[STRUCT_INDEX].mean(dim=0).cpu().numpy()
         struct_kmeans = KMeans(n_clusters=self.num_segments, n_init=10).fit(struct_attn)
@@ -62,15 +62,15 @@ class Segmentor:
         return style_clusters, struct_clusters
 
     def cluster2noun(self, clusters, cross_attn, attn_index):
-        # 将聚类结果映射到名词上
+        # 将聚类结果映射到名词上 clusters:(32,32) cross_attn:(3,8,256,77) attn_index:1
         result = {}
         res = int(cross_attn.shape[2] ** 0.5)
         nouns_indices = [index for (index, word) in self.nouns]
-        cross_attn = cross_attn[attn_index].mean(dim=0).reshape(res, res, -1)
-        nouns_maps = cross_attn.cpu().numpy()[:, :, [i + 1 for i in nouns_indices]]
-        normalized_nouns_maps = np.zeros_like(nouns_maps).repeat(2, axis=0).repeat(2, axis=1)
-        for i in range(nouns_maps.shape[-1]):
-            curr_noun_map = nouns_maps[:, :, i].repeat(2, axis=0).repeat(2, axis=1)
+        cross_attn = cross_attn[attn_index].mean(dim=0).reshape(res, res, -1) # (16,16,77)
+        nouns_maps = cross_attn.cpu().numpy()[:, :, [i + 1 for i in nouns_indices]] # (16,16,4)
+        normalized_nouns_maps = np.zeros_like(nouns_maps).repeat(2, axis=0).repeat(2, axis=1) # (32,32,4)
+        for i in range(nouns_maps.shape[-1]): # 名词个数
+            curr_noun_map = nouns_maps[:, :, i].repeat(2, axis=0).repeat(2, axis=1) # (32,32)
             normalized_nouns_maps[:, :, i] = (curr_noun_map - np.abs(curr_noun_map.min())) / curr_noun_map.max()
         
         max_score = 0
@@ -78,12 +78,12 @@ class Segmentor:
         for c in range(self.num_segments):
             cluster_mask = np.zeros_like(clusters)
             cluster_mask[clusters == c] = 1
-            score_maps = [cluster_mask * normalized_nouns_maps[:, :, i] for i in range(len(nouns_indices))]
+            score_maps = [cluster_mask * normalized_nouns_maps[:, :, i] for i in range(len(nouns_indices))] # （32，32）
             scores = [score_map.sum() / cluster_mask.sum() for score_map in score_maps]
             all_scores.append(max(scores))
             max_score = max(max(scores), max_score)
 
-        all_scores.remove(max_score)
+        all_scores.remove(max_score) # list:5
         mean_score = sum(all_scores) / len(all_scores)
 
         for c in range(self.num_segments):
@@ -92,24 +92,43 @@ class Segmentor:
             score_maps = [cluster_mask * normalized_nouns_maps[:, :, i] for i in range(len(nouns_indices))]
             scores = [score_map.sum() / cluster_mask.sum() for score_map in score_maps]
             result[c] = self.nouns[np.argmax(np.array(scores))] if max(scores) > 1.4 * mean_score else "BG"
-
-        return result
+        # 记录对应表示前景还是背景
+        return result # {0: 'BG', 1: 'BG', 2: (1, 'tea'), 3: 'BG', 4: (1, 'tea')}
 
     def create_mask(self, clusters, cross_attention, attn_index):
         cluster2noun = self.cluster2noun(clusters, cross_attention, attn_index)
-        mask = clusters.copy()
+        mask = clusters.copy() # (32,32)
         obj_segments = [c for c in cluster2noun if cluster2noun[c][1] in self.object_nouns]
         for c in range(self.num_segments):
-            mask[clusters == c] = 1 if c in obj_segments else 0
+            mask[clusters == c] = 1 if c in obj_segments else 0 # 将物体mask设置为1
         return torch.from_numpy(mask).to("cuda")
 
     def get_object_masks(self) -> Tuple[torch.Tensor]:
-        clusters_style_32, clusters_struct_32 = self.cluster(res=32)
-        clusters_style_64, clusters_struct_64 = self.cluster(res=64)
-
-        mask_style_32 = self.create_mask(clusters_style_32, self.cross_attention_32, STYLE_INDEX)
+        clusters_style_32, clusters_struct_32 = self.cluster(res=32) # (32,32)
+        clusters_style_64, clusters_struct_64 = self.cluster(res=64) # (64,64)
+        # self.cross_attention_32:(3,8,256,77)
+        mask_style_32 = self.create_mask(clusters_style_32, self.cross_attention_32, STYLE_INDEX) # （32，32）
         mask_struct_32 = self.create_mask(clusters_struct_32, self.cross_attention_32, STRUCT_INDEX)
         mask_style_64 = self.create_mask(clusters_style_64, self.cross_attention_64, STYLE_INDEX)
         mask_struct_64 = self.create_mask(clusters_struct_64, self.cross_attention_64, STRUCT_INDEX)
 
         return mask_style_32, mask_struct_32, mask_style_64, mask_struct_64
+if __name__ == "__main__":
+    prompt = "a tea pot pouring tea into a cup."
+    object_noun = "tea"
+    chunk_size = 4
+    segmentor = Segmentor(prompt=prompt, object_nouns=[object_noun])
+    attn_weight = torch.zeros((12,4,1024,1024))
+    is_cross = False
+    segmentor.update_attention(attn_weight, is_cross)
+    attn_weight = torch.zeros((12,4,4096,4096))
+    is_cross = False
+    segmentor.update_attention(attn_weight, is_cross)
+    attn_weight = torch.zeros((12,8,256,77))
+    is_cross = True
+    segmentor.update_attention(attn_weight, is_cross)
+    attn_weight = torch.zeros((12,8,1024,77))
+    is_cross = True
+    segmentor.update_attention(attn_weight, is_cross)
+    mask_style_32, mask_struct_32, mask_style_64, mask_struct_64 = segmentor.get_object_masks()
+    print(mask_style_32.shape)

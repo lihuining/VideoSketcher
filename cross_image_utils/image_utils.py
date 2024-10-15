@@ -5,8 +5,22 @@ import numpy as np
 from PIL import Image
 
 from config import RunConfig
-
-
+import os
+def load_video_images(struct_dir, app_image_path) -> Tuple[Image.Image, Image.Image]:
+    '''
+    return array
+    '''
+    image_style = load_size(app_image_path)
+    image_struct_list= []
+    for image_name in sorted(os.listdir(struct_dir)):
+        if image_name.endswith(".png"):
+            struct_image_path = os.path.join(struct_dir,image_name)
+            image_struct = load_size(struct_image_path)
+            image_struct_list.append(image_struct)
+    # if save_path is not None:
+    #     Image.fromarray(image_style).save(save_path / f"in_style.png")
+    #     Image.fromarray(image_struct).save(save_path / f"in_struct.png")
+    return image_style, image_struct_list
 def load_images(cfg: RunConfig, save_path: Optional[pathlib.Path] = None) -> Tuple[Image.Image, Image.Image]:
     image_style = load_size(cfg.app_image_path)
     image_struct = load_size(cfg.struct_image_path)

@@ -23,7 +23,11 @@ class AppearanceTransferModel:
         self.up_layers = []
         
         self.config = config
-        self.pipe = get_stable_diffusion_model(choice="video") if pipe is None else pipe
+        choice = "video"
+        if choice == "video":
+            self.pipe,model_key = get_stable_diffusion_model(choice=choice) if pipe is None else pipe
+        else:
+            self.pipe = get_stable_diffusion_model(choice=choice) if pipe is None else pipe
         self.controller = AttentionStore() # add controller for visualization
         self.register_attention_control()
         self.segmentor = Segmentor(prompt=config.prompt, object_nouns=[config.object_noun])

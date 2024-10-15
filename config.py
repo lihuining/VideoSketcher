@@ -25,7 +25,7 @@ class RunConfig:
     # Number of timesteps
     num_timesteps: int = 100
     # Whether to use a binary mask for performing AdaIN
-    use_masked_adain: bool = True
+    use_masked_adain: bool = False
     # Timesteps to apply cross-attention on 64x64 layers
     cross_attn_64_range: Range = Range(start=10, end=90)
     # Timesteps to apply cross-attention on 32x32 layers
@@ -68,10 +68,10 @@ class RunConfig:
         self.app_latent_save_path = self.latents_path / f"{self.app_image_path.stem}.pt"
         self.struct_latent_save_path = self.latents_path / f"{self.struct_image_path.stem}.pt"
         # define the paths to visualize the attention map
-        self.cross_attention = self.latents_path = Path(self.output_path) / "cross_attention"
+        self.cross_attention = Path(self.output_path) / "cross_attention"
         self.cross_attention.mkdir(parents=True, exist_ok=True)
         
-        self.self_attention = self.latents_path = Path(self.output_path) / "self_attention"
+        self.self_attention = Path(self.output_path) / "self_attention"
         self.self_attention.mkdir(parents=True, exist_ok=True)
         
         

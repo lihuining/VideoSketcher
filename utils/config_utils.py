@@ -31,7 +31,6 @@ def load_config(print_config = True):
     if print_config:
         print("[INFO] loaded config:")
         print(OmegaConf.to_yaml(config))
-
     cross_image_config = RunConfig(
         app_image_path=Path(config['app_image_path']),
         struct_image_path=Path(config['struct_image_path']),
@@ -39,7 +38,9 @@ def load_config(print_config = True):
         use_masked_adain=config.get('use_masked_adain', True),
         contrast_strength=config.get('contrast_strength', 1.67),
         swap_guidance_scale=config.get('swap_guidance_scale', 1.0),
-        gamma=config.get('gamma', 0.75)
+        gamma=config.get('gamma', 0.75),
+        prompt=config.inversion.prompt,
+        load_latents=config.load_latents,
     ) # 将读取的 YAML 数据赋值给 RunConfig
     return config,cross_image_config
 

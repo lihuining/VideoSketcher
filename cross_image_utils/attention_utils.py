@@ -3,6 +3,22 @@ import torch
 
 from constants import OUT_INDEX
 
+import os
+import torchvision.transforms as T
+def show_tensor_image(save_dir,tensor_imgs,pre_fix,post_fix):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir,exist_ok=True)
+    to_pil = T.ToPILImage()
+    if len(tensor_imgs.shape) == 3:
+        for i in range(tensor_imgs.shape[0]):
+            mask_image = to_pil(tensor_imgs[i])
+            save_path = os.path.join(save_dir,f"{pre_fix}_{post_fix}_{i}.png")
+            mask_image.save(save_path)
+    else:
+        mask_image = to_pil(tensor_imgs)
+        save_path = os.path.join(save_dir, f"{pre_fix}_{post_fix}_0.png")
+        mask_image.save(save_path)
+
 
 def should_mix_keys_and_values(model, hidden_states: torch.Tensor) -> bool:
     """ Verify whether we should perform the mixing in the current timestep.  """

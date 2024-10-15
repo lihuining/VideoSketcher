@@ -54,7 +54,7 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             cross_image_attention_range: Range = Range(10, 90),
             # DDPM addition
             zs: Optional[List[torch.Tensor]] = None,
-            perform_cross_frame: bool = True,
+            # perform_cross_frame: bool = True,
     ):
 
         # 0. Default height and width to unet
@@ -133,14 +133,14 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': True,'perform_cross_frame': perform_cross_frame},
+                cross_attention_kwargs={'perform_swap': True}, # 'perform_cross_frame': perform_cross_frame
                 return_dict=False,
             )[0]
             noise_pred_no_swap = self.unet(
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': False,'perform_cross_frame': perform_cross_frame},
+                cross_attention_kwargs={'perform_swap': False},
                 return_dict=False,
             )[0]
             # torch.equal(noise_pred_swap,noise_pred_no_swap)

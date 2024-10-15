@@ -53,7 +53,7 @@ def inversion_forward_process(model, x0,
         xts = sample_xts_from_x0(model, x0, num_inference_steps=num_inference_steps)
         alpha_bar = model.scheduler.alphas_cumprod
         zs = torch.zeros(size=variance_noise_shape, device=model.device) #(100,4,64,64)
-
+    # 32:671
     t_to_idx = {int(v): k for k, v in enumerate(timesteps)} # key:time value:index {1:99,11:98}
     xt = x0
     op = tqdm(reversed(timesteps)) if prog_bar else reversed(timesteps) # 100step

@@ -56,6 +56,7 @@ class AppearanceTransferModel:
         self.image_app_mask_32, self.image_app_mask_64 = None, None
         self.image_struct_mask_32, self.image_struct_mask_64 = None, None
         self.enable_edit = False
+        self.perform_cross_frame = False
         self.step = 0 # get_adain_callback的时候修改时间步
         ## video process ##
         self.device = video_config.device
@@ -226,20 +227,20 @@ class AppearanceTransferModel:
         # self.chunk_size = chunk_size
         images = self.pipe(
             chunk_size = chunk_size,
-            prompt=[self.video_config.inversion.prompt] * 3 *chunk_size,
+            prompt=[self.video_config.inversion.prompt] * 3 *chunk_size, # 'a tea pot pouring tea into a cup.'
             latents=init_latents,
             guidance_scale=1.0,
-            num_inference_steps=self.config.num_timesteps,
-            swap_guidance_scale=self.config.swap_guidance_scale,
+            num_inference_steps=self.config.num_timesteps, # 100
+            swap_guidance_scale=self.config.swap_guidance_scale, # 1.0
             callback=self.get_adain_callback(),
             eta=1,
             generator=torch.Generator('cuda').manual_seed(self.config.seed),
             cross_image_attention_range=Range(start=start_step, end=end_step),
             zs=init_zs,
-            perform_cross_frame=self.video_config.perform_cross_frame,
+            # perform_cross_frame=self.video_config.perform_cross_frame,
         ).images  # 注意这里guidance_scale = 1
-        joined_images = np.concatenate(images[::-1], axis=1)
-        Image.fromarray(joined_images).save(os.path.join(self.video_config.work_dir, f"chunk_inference_{chunk_size}_wo_callback.png"))
+        # joined_images = np.concatenate(images[::-1], axis=1)
+        # Image.fromarray(joined_images).save(os.path.join(self.video_config.work_dir, f"chunk_inference_{chunk_size}_test.png"))
 
         return images
 
@@ -253,11 +254,13 @@ class AppearanceTransferModel:
         result_style = []
         result_content = []
         frames_counter = 0
+        # self.enable_edit = False
+        # self.perform_cross_frame = False
+        # # self.load_single_image_init() # debug
+        # frame_ids=[0]
+        # self.inference_chunk(frame_ids, 0)
         self.enable_edit = True
-        self.load_single_image_init() # debug
-
-        frame_ids=[0]
-        self.inference_chunk(self, frame_ids, 0)
+        self.perform_cross_frame = True
         # self.enable_edit = False  # Activate our cross-image attention layers
         post = f'{self.chunk_size}'+ ('_cross_frame' if self.video_config.perform_cross_frame else '_wo_cross_frame')
         save_path = os.path.join(output_path, f'generated_result_{post}')
@@ -291,6 +294,8 @@ class AppearanceTransferModel:
         torch.cuda.empty_cache()
 
         save_frames(result_stylized, save_path)
+        joined_images = np.concatenate(result_stylized[::-1], axis=1)
+        Image.fromarray(joined_images).save(os.path.join(save_path, f"combined.png"))
         save_frames(result_content, save_video)
         save_frames(result_style,style_path)
 
@@ -358,7 +363,10 @@ class AppearanceTransferModel:
                          temb=None,
                          perform_swap: bool = False,
                          perform_cross_frame: bool = True,):
-                chunk_size = hidden_states.shape[0] // 3 
+                if hidden_states.shape[0] < 3: # 单张图情况
+                    chunk_size = 1
+                else:
+                    chunk_size = hidden_states.shape[0] // 3  # 单张图[1,4096,320]
                 residual = hidden_states
 
                 if attn.spatial_norm is not None:
@@ -427,7 +435,7 @@ class AppearanceTransferModel:
                         query = rearrange(query, "b f d c -> (b f) d c")
                 else: 
                     # 进行cross_frame_attention
-                    if perform_cross_frame:
+                    if model_self.perform_cross_frame:
                         former_frame_index = [0]*chunk_size
                         # print(f"former_frame_index: {former_frame_index}, key[OUT_INDEX].shape: {key[OUT_INDEX].shape}")
                         key = rearrange(key, "(b f) d c -> b f d c", f=chunk_size)  # [12,4096,320] -> [3,4,4096,320]

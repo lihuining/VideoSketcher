@@ -9,13 +9,12 @@ width: 512
 app_image_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
 app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/sketch_style"
 struct_image_path: None
-domain_name: animal
-use_masked_adain: True
+domain_name: "animal"
+use_masked_adain: False
 contrast_strength: 1.67
 swap_guidance_scale: 1.0
 gamma: 0.75
 ##
-
 inversion:
   skip_steps: 32
   save_path: "${work_dir}/latents"
@@ -28,7 +27,7 @@ inversion:
   recon: True # Reconstruct the input video from inverted latents.
   control: "none" # Apply ControlNet in inversion. Choices ['tile', 'softedge', 'depth', 'canny', 'none']
   control_scale: 1.0
-  batch_size: 4
+  batch_size: 3
   force: False # Force run inversion even inverted latents have been found
   # float_precision: "fp32" # "fp16" or "fp32"
 

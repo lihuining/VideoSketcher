@@ -22,6 +22,9 @@ Official implementation of our Cross-Image Attention and Appearance Transfer pap
 
 
 ## Environment
+
+xformers版本: 0.0.21
+
 Our code builds on the requirement of the `diffusers` library. To set up their environment, please run:
 ```
 conda env create -f environment/environment.yaml
