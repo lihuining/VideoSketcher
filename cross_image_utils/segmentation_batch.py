@@ -52,7 +52,7 @@ class Segmentor:
                 self.self_attention_64 = attn # (4096,)
 
     def __call__(self, *args, **kwargs):
-        clusters = self.cluster_batch()
+        clusters = self.cluster_batch(res=32)
         cluster2noun = self.cluster2noun(clusters)
         return cluster2noun
     def cluster(self, res: int = 32):
@@ -207,6 +207,9 @@ class Segmentor:
             mask_struct_32 = self.create_mask(clusters_struct_32, self.cross_attention_32, STRUCT_INDEX)
             mask_style_64 = self.create_mask(clusters_style_64, self.cross_attention_64, STYLE_INDEX)
             mask_struct_64 = self.create_mask(clusters_struct_64, self.cross_attention_64, STRUCT_INDEX)
+            save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/masks"
+            show_tensor_image(save_dir,mask_style_64,'style',64)
+            show_tensor_image(save_dir,mask_struct_64, 'struct', 64)
         return mask_style_32, mask_struct_32, mask_style_64, mask_struct_64
 
 if __name__ == "__main__":

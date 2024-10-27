@@ -9,9 +9,9 @@ work_dir: "outputs/tea-pour-debug"
 height: 512
 width: 512
 domain_name: "animal"
-use_masked_adain: False
+use_masked_adain: True
 load_latents: False
-perform_cross_frame: True # new add
+
 inversion:
 #  prompt: "a tea pot pouring tea into a cup."
   prompt: "A photo of a animal."

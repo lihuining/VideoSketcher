@@ -7,6 +7,7 @@ from diffusers.models import AutoencoderKL
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import rescale_noise_cfg
 from diffusers.schedulers import KarrasDiffusionSchedulers
+from requests.packages import target
 from tqdm import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, CLIPImageProcessor
 
@@ -31,7 +32,6 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
     @torch.no_grad()
     def __call__(
             self,
-            chunk_size: List[int], # add
             prompt: Union[str, List[str]] = None,
             height: Optional[int] = None,
             width: Optional[int] = None,
@@ -55,6 +55,8 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             # DDPM addition
             zs: Optional[List[torch.Tensor]] = None,
             # perform_cross_frame: bool = True,
+            prev_latents_x0_list = {},
+            latent_update = False,
     ):
 
         # 0. Default height and width to unet
@@ -93,7 +95,7 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             prompt_embeds=prompt_embeds,
             negative_prompt_embeds=negative_prompt_embeds,
             lora_scale=text_encoder_lora_scale,
-        ) # (3,77,768)
+        ) # (3,77,768) [】没有cfg则为positive结果
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
@@ -122,9 +124,11 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
         n_timesteps = len(timesteps[-start_index:]) # 68
 
         count = 0 # 统计到目前为止的step数
+        per_step_weight = 100.0 # 每个step的权重
         for t in op:
             i = t_to_idx[int(t)] # time:671 i:1
-
+            if i > 25:
+                per_step_weight = 0
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
@@ -133,34 +137,42 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 latent_model_input,
                 t,
                 encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': True}, # 'perform_cross_frame': perform_cross_frame
+                cross_attention_kwargs={'perform_swap': True,'time_step':t.item()}, # 'perform_cross_frame': perform_cross_frame
                 return_dict=False,
-            )[0]
-            noise_pred_no_swap = self.unet(
-                latent_model_input,
-                t,
-                encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': False},
-                return_dict=False,
-            )[0]
-            # torch.equal(noise_pred_swap,noise_pred_no_swap)
-            # perform guidance
-            if do_classifier_free_guidance:
-                _, noise_swap_pred_text = noise_pred_swap.chunk(2)
-                noise_no_swap_pred_uncond, _ = noise_pred_no_swap.chunk(2)
-                noise_pred = noise_no_swap_pred_uncond + guidance_scale * (
-                        noise_swap_pred_text - noise_no_swap_pred_uncond)
-            else: # 范围为cross_attn_32_range和cross_attn_64_range 并集
-                is_cross_image_step = cross_image_attention_range.start <= i <= cross_image_attention_range.end # (10,90)
-                if swap_guidance_scale > 1.0 and is_cross_image_step:
-                    swapping_strengths = np.linspace(swap_guidance_scale,
-                                                     max(swap_guidance_scale / 2, 1.0),
-                                                     n_timesteps)
-                    swapping_strength = swapping_strengths[count]
-                    noise_pred = noise_pred_no_swap + swapping_strength * (noise_pred_swap - noise_pred_no_swap)
-                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_swap, guidance_rescale=guidance_rescale)
-                else:
-                    noise_pred = noise_pred_swap
+            )[0] # (6,4,64,64)
+            noise_pred = noise_pred_swap
+            # if do_classifier_free_guidance:
+            #     noise_swap_pred_uncond, noise_swap_pred_text = noise_pred_swap.chunk(2)
+            #     noise_pred = noise_swap_pred_uncond + guidance_scale * (
+            #             noise_swap_pred_text - noise_swap_pred_uncond)
+            # noise_pred = rescale_noise_cfg(noise_pred, noise_swap_pred_text, guidance_rescale=1.0)
+            ###
+            # noise_pred_no_swap = self.unet(
+            #     latent_model_input,
+            #     t,
+            #     encoder_hidden_states=prompt_embeds,
+            #     cross_attention_kwargs={'perform_swap': False,'time_step':t.item()},
+            #     return_dict=False,
+            # )[0]
+            # # torch.equal(noise_pred_swap,noise_pred_no_swap)
+            # # perform guidance
+            # if do_classifier_free_guidance:
+            #     noise_swap_pred_uncond, noise_swap_pred_text = noise_pred_swap.chunk(2)
+            #     noise_no_swap_pred_uncond, _ = noise_pred_no_swap.chunk(2)
+            #     noise_pred = noise_no_swap_pred_uncond + guidance_scale * (
+            #             noise_swap_pred_text - noise_no_swap_pred_uncond)
+            # else: # 范围为cross_attn_32_range和cross_attn_64_range 并集
+            #     is_cross_image_step = cross_image_attention_range.start <= i <= cross_image_attention_range.end # (10,90)
+            #     if swap_guidance_scale > 1.0 and is_cross_image_step:
+            #         swapping_strengths = np.linspace(swap_guidance_scale,
+            #                                          max(swap_guidance_scale / 2, 1.0),
+            #                                          n_timesteps)
+            #         swapping_strength = swapping_strengths[count] # 每个step的swapping_strength在逐渐变大
+            #         noise_pred = noise_pred_no_swap + swapping_strength * (noise_pred_swap - noise_pred_no_swap)
+            #         noise_pred = rescale_noise_cfg(noise_pred, noise_pred_swap, guidance_rescale=guidance_rescale)
+            #     else:
+            #         noise_pred = noise_pred_swap
+
             # b,c,h,w = latents.shape
             # latents = latents.reshape(chunk_size,-1,c,h,w) # (4,3,4,64,64)
             # noise_pred = noise_pred.reshape(chunk_size,-1,c,h,w)
@@ -177,18 +189,51 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
 
             b, c, h, w = latents.shape
             # latents = latents.reshape(-1,chunk_size, c, h, w)  # (3,4,4,64,64)
+            if b < 3: # 单张图情况
+                chunk_size = 1 # 单张图[1,4096,320]
+            else:
+                chunk_size = b // 3  
             latents_list  = torch.split(latents, [chunk_size]*3, dim=0) # content1, style, content2 保持了原来的顺序和数据内容
-            noise_pred_list = torch.split(noise_pred, [chunk_size]*3, dim=0)
-            latents = torch.cat([
-                self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t, noise_pred_list[latent_idx], eta)
-                for latent_idx in range(len(noise_pred_list))
-            ],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            noise_pred_list = torch.split(noise_pred, [chunk_size]*3, dim=0) # (2,4,64,64)
+            latents_list_next = []
+            pred_x0_list = []
+            for latent_idx in range(len(noise_pred_list)):
+                latent,pred_x0 = self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t,noise_pred_list[latent_idx], eta)
+                latents_list_next.append(latent)
+                pred_x0_list.append(pred_x0)
+            latents,pred_x0 = torch.cat(latents_list_next,dim=0),torch.cat(pred_x0_list,dim=0)
+            #latents,pred_x0 = torch.cat([self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t, noise_pred_list[latent_idx], eta) for latent_idx in range(len(noise_pred_list))],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            # 后处理 # latent_update
+            # if not all(not value for value in prev_latents_x0_list.values()): # 所有值均不为空,RuntimeError: Boolean value of Tensor with more than one value is ambiguous
+            if latent_update:
+                if all((isinstance(value, (list, torch.Tensor)) and len(value) != 0) or (
+                            isinstance(value, torch.Tensor) and value.numel() != 0) for value in
+                               prev_latents_x0_list.values()):
+                    pre_chunk_last = prev_latents_x0_list[t.item()].unsqueeze(0) # [1,4,64,64]
+                    cur_chunk = pred_x0[:chunk_size][1:,]
+                    target_chunk = torch.cat([pre_chunk_last,cur_chunk],dim=0)
+
+                    with torch.enable_grad():
+                        # 初始化 loss 为 0
+                        # loss = torch.tensor(0.0).to(pred_x0.device)
+                        dummy_pred_chunk = pred_x0[:chunk_size].clone().detach()
+                        dummy_pred_chunk = dummy_pred_chunk.requires_grad_(requires_grad=True)
+                        loss = per_step_weight * torch.nn.functional.mse_loss(target_chunk, dummy_pred_chunk)
+                        # for frame_id in range(chunk_size):
+                        #     # dummy_pred = pred_x0[:chunk_size][frame_id].clone().detach()
+                        #     # dummy_pred = dummy_pred.requires_grad_(requires_grad=True)
+                        #     dummy_pred = dummy_pred_chunk[frame_id]
+                        #     target = target_chunk[frame_id]
+                        #     loss += per_step_weight * torch.nn.functional.mse_loss(target, dummy_pred)
+                        loss.backward() # 保留计算图
+                        latents[:chunk_size] = latents[:chunk_size] + dummy_pred_chunk.grad.clone() * -1.  # max:3.46 0.06 norm:91
+
 
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
                 # progress_bar.update()
                 if callback is not None and i % callback_steps == 0:
-                    callback(i, t, latents)
+                    callback(i, t, latents,pred_x0)
 
             count += 1
 
@@ -250,7 +295,7 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 z = torch.randn(noise_pred.shape, device=self.device)
             sigma_z = eta * variance ** (0.5) * z
             prev_sample = prev_sample + sigma_z
-        return prev_sample
+        return prev_sample,pred_original_sample
 
     def get_variance(self, timestep):
         prev_timestep = timestep - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps

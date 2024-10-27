@@ -1,5 +1,5 @@
-sd_version: "2.1" # In ['2.1', '2.0', '1.5', 'depth']
-input_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/dog-walking.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
+sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
+input_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/dog-walking" # Accept .mp4, .gif file or a folder with png/jpg sequence
 work_dir: "outputs/dog_walking"
 
 height: 512
@@ -7,11 +7,12 @@ width: 512
 
 inversion:
   save_path: "${work_dir}/latents"
-  prompt: "a dog walking on the ground near a bush."
+#  prompt: "a dog walking on the ground near a bush."
+  prompt: "A photo of a animal."
   steps: 50
   save_intermediate: True # Save intermediate latents. Required when using PnP.
   save_steps: 50
-  n_frames: 5 # 32
+  n_frames: 1 # 32
 
 generation:
   control: "pnp"

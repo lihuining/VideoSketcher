@@ -23,14 +23,14 @@ class AppearanceTransferModel:
         self.up_layers = []
         
         self.config = config
-        choice = "video"
-        if choice == "video":
-            self.pipe,model_key = get_stable_diffusion_model(choice=choice) if pipe is None else pipe
+        if config.choice == "video":
+            self.pipe,model_key = get_stable_diffusion_model(choice=config.choice) if pipe is None else pipe
         else:
-            self.pipe = get_stable_diffusion_model(choice=choice) if pipe is None else pipe
+            self.pipe = get_stable_diffusion_model(choice=config.choice) if pipe is None else pipe
         self.controller = AttentionStore() # add controller for visualization
         self.register_attention_control()
-        self.segmentor = Segmentor(prompt=config.prompt, object_nouns=[config.object_noun])
+        self.segmentor = Segmentor(prompt=config.prompt, object_nouns=[config.object_noun],num_segments=config.num_segments,config=config)
+        # self.segmentor = Segmentor(config = self.config)
         self.latents_app, self.latents_struct = None, None
         self.zs_app, self.zs_struct = None, None
         self.image_app_mask_32, self.image_app_mask_64 = None, None
@@ -63,7 +63,8 @@ class AppearanceTransferModel:
             # Apply AdaIN operation using the computed masks
             if self.config.adain_range.start <= self.step < self.config.adain_range.end:
                 if self.config.use_masked_adain:
-                    latents[0] = masked_adain(latents[0], latents[1], self.image_struct_mask_64, self.image_app_mask_64)
+                    # latents[0] = masked_adain(latents[0], latents[1], self.image_struct_mask_64, self.image_app_mask_64)
+                    latents[0] = masked_adain(latents[0], latents[1], self.image_struct_mask_32, self.image_app_mask_32)
                 else:
                     latents[0] = adain(latents[0], latents[1])
 

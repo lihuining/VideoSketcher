@@ -1,25 +1,39 @@
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
-model_key: null # Specify model key. If set, ignore sd_version.
+model_key: "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
+ # Specify model key. If set, ignore sd_version.
 input_path: "path/to/video" # Accept .mp4, .gif file or a folder with png/jpg sequence
 work_dir: "workdir"
 
 height: 512
 width: 512
 ## cross image attention
-app_image_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
-app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/sketch_style"
+#app_image_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
+#app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/sketch_style"
+
+app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg"
+app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/ref0020"
 struct_image_path: None
-domain_name: "animal"
+domain_name: 'object'   # 传进去之后是str？
 use_masked_adain: False
+use_adain: False
 contrast_strength: 1.67
 swap_guidance_scale: 1.0
 gamma: 0.75
+load_latents: True
+cfg_inversion_style: 0.0
+cfg_inversion_contents: 0.0
+# new add
+perform_cross_frame: True
+perform_cross_frame_with_prev: False
+latent_update: True
+
+start_frame: 0
 ##
 inversion:
   skip_steps: 32
   save_path: "${work_dir}/latents"
   prompt: "xxxx"
-  n_frames: null # null for inverting all frames
+  n_frames: null # null for inverting all frames,总共使用的帧数
   steps: 50 # Inversion steps
   save_intermediate: False # Save intermediate latents. Required when using PnP.
   save_steps: 50
@@ -32,6 +46,7 @@ inversion:
   # float_precision: "fp32" # "fp16" or "fp32"
 
 generation:
+  chunk_size: 3
   control: "pnp" # Apply which control in generation. 
   # Choices:
   # 'pnp' (Plug-and-Play), args:
@@ -55,7 +70,7 @@ generation:
   latents_path: "${work_dir}/latents"
   output_path: "${work_dir}"
 
-  chunk_size: 4 # Number of frames in a video chunk
+#  chunk_size: 4 # Number of frames in a video chunk
   chunk_ord: "mix-4" # Process video chunks in which order. From ['seq', 'rand', 'mix-#'].
 
   # VidToMe args. See details in "src/vidtome/patch.py, apply_patch()"

@@ -34,13 +34,18 @@ def load_config(print_config = True):
     cross_image_config = RunConfig(
         app_image_path=Path(config['app_image_path']),
         struct_image_path=Path(config['struct_image_path']),
-        domain_name=config.get('domain_name'),
+        domain_name=config.get('domain_name',None),
         use_masked_adain=config.get('use_masked_adain', True),
+        use_adain = config.get('use_adain',True),
         contrast_strength=config.get('contrast_strength', 1.67),
         swap_guidance_scale=config.get('swap_guidance_scale', 1.0),
         gamma=config.get('gamma', 0.75),
-        prompt=config.inversion.prompt,
+        # prompt=config.inversion.prompt,
+        object_noun = config.get('object_noun',None),
         load_latents=config.load_latents,
+        cfg_inversion_style = config.get('cfg_inversion_style', 0.0),
+        cfg_inversion_contents = config.get('cfg_inversion_contents',0.0),
+        style_domain_name = config.get("style_domain_name",None)
     ) # 将读取的 YAML 数据赋值给 RunConfig
     return config,cross_image_config
 

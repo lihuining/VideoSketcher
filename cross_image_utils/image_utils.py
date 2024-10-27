@@ -8,12 +8,12 @@ from config import RunConfig
 import os
 def load_video_images(struct_dir, app_image_path) -> Tuple[Image.Image, Image.Image]:
     '''
-    return array
+    return numpy array,size:(512,512）
     '''
     image_style = load_size(app_image_path)
     image_struct_list= []
     for image_name in sorted(os.listdir(struct_dir)):
-        if image_name.endswith(".png"):
+        if image_name.endswith(".png") or image_name.endswith(".jpg"):
             struct_image_path = os.path.join(struct_dir,image_name)
             image_struct = load_size(struct_image_path)
             image_struct_list.append(image_struct)

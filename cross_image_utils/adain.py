@@ -15,6 +15,11 @@ def masked_adain_batch(content_feat, style_feat, content_mask, style_mask): # (3
     return content_feat * (1 - content_mask.unsqueeze(1)) + style_normalized_feat * content_mask.unsqueeze(1)
 def masked_adain(content_feat, style_feat, content_mask, style_mask): # (4,64,64) (64,64) (64,64) -> (4,64,64)
     assert (content_feat.size()[:2] == style_feat.size()[:2])
+    c,h,w = content_feat.shape
+    h_mask,w_mask = content_mask.shape
+    # if h != h_mask or w != w_mask:
+    #     content_mask = content_mask.resize(h,w)
+    #     style_mask = style_mask.resize(h,w)
     size = content_feat.size()
     style_mean, style_std = calc_mean_std(style_feat, mask=style_mask)
     content_mean, content_std = calc_mean_std(content_feat, mask=content_mask)

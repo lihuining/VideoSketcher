@@ -4,6 +4,8 @@ import torch
 from torch import inference_mode
 from tqdm import tqdm
 
+from constants import OUT_INDEX
+
 """
 Inversion code taken from: 
 1. The official implementation of Edit-Friendly DDPM Inversion: https://github.com/inbarhub/DDPM_inversion
@@ -176,7 +178,10 @@ def get_variance(model, timestep):
 
 
 class AttentionControl(abc.ABC):
-
+    def __init__(self):
+        self.cur_step = 0
+        self.num_att_layers = -1
+        self.cur_att_layer = 0
     def step_callback(self, x_t):
         return x_t
 
@@ -209,25 +214,117 @@ class AttentionControl(abc.ABC):
         self.cur_step = 0
         self.cur_att_layer = 0
 
-    def __init__(self):
-        self.cur_step = 0
-        self.num_att_layers = -1
-        self.cur_att_layer = 0
+
 
 
 class AttentionStore(AttentionControl):
+    def __init__(self,timesteps,layers,cond_layer):
+        super(AttentionStore, self).__init__()
+        self.update_prev = False
+        self.inin_store = False
+        self.updatecur = False
+        self.get_empty_store()
+        self.key_frame_query_store = {} # 第一帧query结果
+        self.prev_frame_query_store = {} # 前一帧query结果
+        self.cur_frame_query_store = {}  # 当前帧query结果
+        self.valid_layers = set()
+        self.up_resolution = 1280
+        for layer in layers:
+            place_in_unet,count,is_cross = layer.split('_')
+            if int(count) < cond_layer:
+                continue
+            self.valid_layers.add(layer)
+            self.key_frame_query_store[layer] = {}
+            self.prev_frame_query_store[layer] = {}
+            self.cur_frame_query_store[layer] = {}
+            for time in timesteps:
+                self.key_frame_query_store[layer][int(time.item())] = []
+                self.prev_frame_query_store[layer][int(time.item())] = []
+                self.cur_frame_query_store[layer][int(time.item())] = []
+        self.get_valid_layers()
+    def get_valid_layers(self):
+        return self.valid_layers
 
-    @staticmethod
-    def get_empty_store():
-        return {"down_cross": [], "mid_cross": [], "up_cross": [],
-                "down_self": [], "mid_self": [], "up_self": []}
-
-    def forward(self, attn, is_cross: bool, place_in_unet: str):
-        key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
-        if attn.shape[1] <= 32 ** 2:  # avoid memory overhead
-            self.step_store[key].append(attn)
+    # @staticmethod
+    def get_empty_store(self):
+        self.key_frame_query_store = {} # 第一帧query结果
+        self.prev_frame_query_store = {} # 前一帧query结果
+        self.cur_frame_query_store = {}
+        # return {"down_cross": [], "mid_cross": [], "up_cross": [],
+        #         "down_self": [], "mid_self": [], "up_self": []}
+    def check_validation(self,attn,layer_key):
+        if layer_key in self.valid_layers and attn.shape[1] <= self.up_resolution: # [1,4096,320]
+            return True
+        else:
+            return False
+    def forward(self, attn, layer_key,time_key):
+        '''
+        input:hidden state (6,4096,320) OUT_INDEX*chunk_size:(OUT_INDEX+1)*chunk_size
+        '''
+        if layer_key not in self.valid_layers:
+            return attn
+        else:
+            chunk_size = attn.shape[0] // 3
+            stylized_hidden_state = attn[OUT_INDEX*chunk_size:(OUT_INDEX+1)*chunk_size]
+            if self.inin_store:
+                self.key_frame_query_store[layer_key][int(time_key)] = stylized_hidden_state[0:1].detach() #.cpu()
+                # self.prev_frame_query_store[layer_key][int(time_key)] = stylized_hidden_state[-2:-1].detach() #.cpu()
+                self.cur_frame_query_store[layer_key][int(time_key)] = stylized_hidden_state[-1:, ...].detach()
+            if self.updatecur:
+                self.cur_frame_query_store[layer_key][int(time_key)] = stylized_hidden_state[-1:, ...].detach()
         return attn
+    def get_current_query(self,layer_key,time_key):
+        '''
+        get prev and anchor key
+        '''
+        if layer_key in self.valid_layers:
+            return self.key_frame_query_store[layer_key][int(time_key)],self.prev_frame_query_store[layer_key][int(time_key)]
+        else:
+            return None,None
+    # def get_current_query(self, layer_key, time_key):
+    #     print(f"Checking layer: {layer_key}, time: {time_key}")
+    #     if layer_key in self.valid_layers:
+    #         if int(time_key) in self.key_frame_query_store[layer_key] and int(time_key) in self.prev_frame_query_store[
+    #             layer_key]:
+    #             return self.key_frame_query_store[layer_key][int(time_key)], self.prev_frame_query_store[layer_key][
+    #                 int(time_key)]
+    #         else:
+    #             print(f"Time key {time_key} not found in stores for layer {layer_key}")
+    #             return None, None
+    #     else:
+    #         print(f"Layer {layer_key} not in valid layers")
+    #         return None, None
 
+    def __call__(self, attn=None,layer_key='',time_key=0):
+        if self.update_prev:
+            '''
+            只在每次新的chunk才执行
+            '''
+            for layer in self.cur_frame_query_store:
+                if not self.cur_frame_query_store[layer]: # Todo: 这句判断没有起作用 dict 每个dict 为空
+                    continue
+                # for time in self.cur_frame_query_store[layer]:
+                for time, value in self.cur_frame_query_store[layer].items():
+                    # 判断是否是 list
+                    if isinstance(value, list):
+                        continue
+                    self.prev_frame_query_store[layer][time] = self.cur_frame_query_store[layer][time].clone() #tensor只能使用clone而不是copy()
+        else:
+            context = self.forward(attn, layer_key,time_key)
+            return context
+    def set_task(self,task):
+        '''
+        每次开启一个任务
+        '''
+        self.update_prev = False
+        self.inin_store = False
+        self.updatecur = False
+        if task == "initfirst":
+            self.inin_store = True
+        if task == "updateprev":
+            self.update_prev = True
+        if task == "updatecur":
+            self.updatecur = True
     def between_steps(self):
         if len(self.attention_store) == 0:
             self.attention_store = self.step_store
@@ -242,15 +339,11 @@ class AttentionStore(AttentionControl):
                              self.attention_store}
         return average_attention
 
-    def reset(self):
-        super(AttentionStore, self).reset()
-        self.step_store = self.get_empty_store()
-        self.attention_store = {}
+    # def reset(self):
+    #     super(AttentionStore, self).reset()
+    #     self.step_store = self.get_empty_store()
+    #     self.attention_store = {}
 
-    def __init__(self):
-        super(AttentionStore, self).__init__()
-        self.step_store = self.get_empty_store()
-        self.attention_store = {}
 
 
 def register_attention_control(model, controller):

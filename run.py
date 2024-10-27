@@ -49,7 +49,7 @@ def run_appearance_transfer(model: AppearanceTransferModel, cfg: RunConfig) -> L
     start_step = min(cfg.cross_attn_32_range.start, cfg.cross_attn_64_range.start) # 10
     end_step = max(cfg.cross_attn_32_range.end, cfg.cross_attn_64_range.end) # 90
     images = model.pipe(
-        chunk_size = 1,
+        # chunk_size = 1,
         prompt=[cfg.prompt] * 3,
         latents=init_latents,
         guidance_scale=1.0,
@@ -89,7 +89,9 @@ if __name__ == '__main__':
 --app_image_path
 /media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png
 --struct_image_path
-/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/tea-pour/000000.png
+# /media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/tea-pour/000000.png
+# /media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/dog-walking/000000.png
+/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/surf/imgs_crop_fore/00000.jpg
 --domain_name
 animal
 --use_masked_adain
@@ -100,5 +102,5 @@ False
 1.0
 --gamma
 0.75
---prompt "a tea pot pouring tea into a cup."
+--prompt "A photo of a animal."
 '''
