@@ -42,6 +42,8 @@ def frame_to_video(video_path: str, frame_dir: str, fps=5, log=True):
     for file_name in file_list:
         if not (file_name.endswith('jpg') or file_name.endswith('png')):
             continue
+        if file_name == "combined.png":
+            continue
 
         fn = os.path.join(frame_dir, file_name)
         curImg = imageio.imread(fn)

@@ -18,6 +18,11 @@ import numpy as np
 import abc
 from cross_image_utils import ptp_utils
 import math
+def on_click(x,y,height=512,width=512,grid=14): # (142,133)
+    grid_size = grid
+    grid_index = y // (height / grid_size) * grid_size + x // (width / grid_size)
+    return int(grid_index)
+
 def aggregate_attention(prompts,attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int):
     out = []
     attention_maps = attention_store.get_average_attention()
@@ -163,7 +168,7 @@ def visualize_and_save_features_pca(feats_map, t, save_dir, layer_idx,n_componen
     """
     B = len(feats_map) # [8,256,160]
     feats_map = feats_map.flatten(0, -2)
-    feats_map = feats_map.cpu().numpy()
+    feats_map = feats_map.detach().cpu().numpy()
 
     # Apply PCA
     pca = PCA(n_components=n_components)  # To keep 3 components for RGB
@@ -233,19 +238,32 @@ def grid_show(to_shows, cols,save_path):
     plt.close(fig)  # 关闭当前图像，避免显示
 
 
-def visualize_head(att_map,save_path):
+
+def visualize_head(att_map, save_path):
     '''attn_map:(197,197)'''
-    ax = plt.gca()
-    # Plot the heatmap
-    im = ax.imshow(att_map)
-    # Create colorbar
-    cbar = ax.figure.colorbar(im, ax=ax)
+    # 将 tensor 转为 NumPy 数组并转移到 CPU
+    att_map = att_map.detach().cpu().numpy()
+
+    # 创建一个新的图形
+    plt.figure(figsize=(8, 8))  # 设置图形大小，可以根据需要调整
+
+    # 绘制热图
+    im = plt.imshow(att_map, cmap='viridis')  # 选择合适的颜色映射
+
+    # 创建 colorbar
+    cbar = plt.colorbar(im)
+    cbar.set_label('Attention Value')  # 设置 colorbar 标签
+
+    # 保存图像
     plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
-    # plt.close(fig)  # 关闭当前图像，避免显示
+
+    # 清除当前图形，以便下次绘制不叠加
+    plt.clf()
 
 
 def visualize_heads(att_map, cols):
     '''attn_map:(1,6,197,197)'''
+    att_map = att_map.detach().cpu().numpy()
     to_shows = []
     att_map = att_map.squeeze()
     for i in range(att_map.shape[0]):
@@ -358,14 +376,17 @@ def visualize_grid_to_grid(att_map, grid_index, image,save_path, grid_size=14, a
     plt.close(fig)  # 关闭当前图像，避免显示
 
 
-def visualize_grid_to_grid_normal(att_map, grid_index, image,save_path,postfix, grid_size=14, alpha=0.6):
+def visualize_grid_to_grid_normal(x,y,att_map, image,save_path,postfix, alpha=0.6):
     '''
+    x,y: 在(512,512)图像上面的坐标
     调用:visualize_grid_to_grid_normal(att_map, grid_index, image,save_path)
-    att_map:(196,196),cuda tensor
+    att_map:(4096,4096),cuda tensor
     image:pil格式读取的
     '''
+
     att_map = att_map.cpu().numpy()
     grid_size = int(att_map.shape[0] ** 0.5)
+    grid_index = on_click(x, y, grid=grid_size)
     if not isinstance(grid_size, tuple):
         grid_size = (grid_size, grid_size)
 

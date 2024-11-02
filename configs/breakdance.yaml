@@ -1,6 +1,6 @@
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
 input_path: "data/breakdance.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
-work_dir: "outputs/breakdance"
+work_dir: "outputs/"
 
 height: 512
 width: 512

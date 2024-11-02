@@ -6,17 +6,34 @@ from PIL import Image
 
 from config import RunConfig
 import os
-def load_video_images(struct_dir, app_image_path) -> Tuple[Image.Image, Image.Image]:
+from utils.utils import glob_frame_paths
+from  cross_image_utils.edge_extraction import load_edge
+
+def load_video_images(app_image_path,struct_dir,struct_save_dir,edge_method='') -> Tuple[Image.Image, Image.Image]:
     '''
     return numpy array,size:(512,512）
+    struct_dir:原始图片
+    struct_save_dir:edge存放图片
+    edge_method: 只在使用edge的时候传入
     '''
     image_style = load_size(app_image_path)
     image_struct_list= []
-    for image_name in sorted(os.listdir(struct_dir)):
-        if image_name.endswith(".png") or image_name.endswith(".jpg"):
-            struct_image_path = os.path.join(struct_dir,image_name)
-            image_struct = load_size(struct_image_path)
+    if edge_method:
+        frame_paths = glob_frame_paths(struct_dir)  # struct当中全部图片
+        for frame_path in frame_paths:
+            save_path = os.path.join(struct_save_dir, os.path.basename(frame_path))
+            if os.path.exists(save_path):  # edge已经存在
+                image_struct = load_size(save_path)
+            else:
+                _ = load_edge(frame_path, device="cpu", method=edge_method, thresholds=[0.55], save_path=save_path) # return tensor
+                image_struct = load_size(save_path)
             image_struct_list.append(image_struct)
+    else:
+        for image_name in sorted(os.listdir(struct_dir)):
+            if image_name.endswith(".png") or image_name.endswith(".jpg"):
+                struct_image_path = os.path.join(struct_dir,image_name)
+                image_struct = load_size(struct_image_path)
+                image_struct_list.append(image_struct)
     # if save_path is not None:
     #     Image.fromarray(image_style).save(save_path / f"in_style.png")
     #     Image.fromarray(image_struct).save(save_path / f"in_struct.png")

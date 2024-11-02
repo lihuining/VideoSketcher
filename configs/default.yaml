@@ -1,63 +1,65 @@
+# 模型版本以及路径
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
 model_key: "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
- # Specify model key. If set, ignore sd_version.
+# Specify model key. If set, ignore sd_version.
+whether_use_ablation: True
+ablation_key: null
 input_path: "path/to/video" # Accept .mp4, .gif file or a folder with png/jpg sequence
-work_dir: "workdir"
+work_dir: "workdir" # 输入视频保存路径
 
 height: 512
 width: 512
 ## cross image attention
-#app_image_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
-#app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/sketch_style"
-
 app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg"
-app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/ref0020"
+app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/" # 不需要加名字
+
 struct_image_path: None
 domain_name: 'object'   # 传进去之后是str？
 use_masked_adain: False
 use_adain: False
 contrast_strength: 1.67
 swap_guidance_scale: 1.0
+keep_struct: True # inject structure
 gamma: 0.75
 load_latents: True
 cfg_inversion_style: 0.0
 cfg_inversion_contents: 0.0
 # new add
+enable_edit: True
 perform_cross_frame: True
 perform_cross_frame_with_prev: False
 latent_update: True
+update_with_matching: True
+update_with_matching_guidance: 500
+update_with_matching_start_time: 1  # 60
+update_with_matching_end_time: 371
+update_with_clip: False # 使用clip更新latents
+update_with_clip_guidance: 100
+update_with_clip_start_time: 1  # 60
+update_with_clip_end_time: 371
+start_frame: 0 # 指定生成的时候加载的起始帧
+use_edge: True
+edge_method: 'teed'
+## register attention control
+up_layers_start_index: 4 # 指定使用query保持的层，len(model_self.up_layers) >= model_self.up_layers_start_index
+cond_layer: 7
 
-start_frame: 0
-##
+## ddpm inversion参数
 inversion:
   skip_steps: 32
+#  output_path: "${work_dir}"
   save_path: "${work_dir}/latents"
-  prompt: "xxxx"
-  n_frames: null # null for inverting all frames,总共使用的帧数
-  steps: 50 # Inversion steps
-  save_intermediate: False # Save intermediate latents. Required when using PnP.
-  save_steps: 50
-  use_blip: False # Use prompt created by BLIP.
+  prompt: "a photo of an object"
+  n_frames: null # null for inverting all frames,指定inversion过程总共使用的帧数,主函数当中指定加载的数量
+  steps: 100 # Inversion steps
+  save_intermediate: True # Save intermediate latents. all timesteps
   recon: True # Reconstruct the input video from inverted latents.
-  control: "none" # Apply ControlNet in inversion. Choices ['tile', 'softedge', 'depth', 'canny', 'none']
-  control_scale: 1.0
-  batch_size: 3
+  batch_size: 3 # batch_size for chunk
   force: False # Force run inversion even inverted latents have been found
   # float_precision: "fp32" # "fp16" or "fp32"
 
-generation:
-  chunk_size: 3
-  control: "pnp" # Apply which control in generation. 
-  # Choices:
-  # 'pnp' (Plug-and-Play), args:
-  pnp_attn_t: 0.5
-  pnp_f_t: 0.8
-
-  # ['tile', 'softedge', 'depth', 'canny'] (Controlnet), args:
-  control_scale: 1.0
-  
-  # 'none' (No control when using sd2-depth model)
-
+generation: # 主要使用frame_range，frame_ids，chunk_size三个变量
+  chunk_size: 3 # 生成时候的chunk
   # Sample args:
   guidance_scale: 7.5 # CFG scale
   n_timesteps: 50
@@ -70,28 +72,9 @@ generation:
   latents_path: "${work_dir}/latents"
   output_path: "${work_dir}"
 
-#  chunk_size: 4 # Number of frames in a video chunk
-  chunk_ord: "mix-4" # Process video chunks in which order. From ['seq', 'rand', 'mix-#'].
-
-  # VidToMe args. See details in "src/vidtome/patch.py, apply_patch()"
-  local_merge_ratio: 0.9
-  merge_global: True
-  global_merge_ratio: 0.8
-  global_rand: 0.5
-  align_batch: True
-
   frame_range: [0, 32, 1] # start, end, interval. == [0, 32] == [32]
   frame_ids: null # Specify frame indexes to edit. It will override frame_range.
   save_frame: True
-
-  # LoRA configs
-  use_lora: False
-  # If use LoRA, add parameters below such as:
-  # lora:
-  #   pretrained_model_name_or_path_or_dict: null
-  #   lora_weight_name: null
-  #   lora_adapter: null
-  #   lora_weight: 1.0
 
 
 

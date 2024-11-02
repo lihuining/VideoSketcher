@@ -35,7 +35,28 @@ def Fourier_filter(x, threshold, scale):
 
 
 class FreeUUNet2DConditionModel(UNet2DConditionModel):
+    # def __init__(self, freeu_args=None, *args, **kwargs):
+    #     # super().__init__(config, *args, **kwargs)
+    #     super().__init__(*args, **kwargs)
+    #     self.freeu_args = freeu_args if freeu_args is not None else []
 
+    # @classmethod
+    # def from_pretrained(cls, pretrained_model_name_or_path, freeu_args=None, **kwargs):
+    #     # # 先调用父类的 from_pretrained 方法加载模型
+    #     # model = super(FreeUUNet2DConditionModel, cls).from_pretrained(pretrained_model_name_or_path,**kwargs)
+    #     #
+    #     # # 加入新的参数
+    #     # cls.freeu_args = freeu_args if freeu_args is not None else []
+    #     #
+    #     # # 返回带有额外参数的模型
+    #     # return model
+    #     subfolder = kwargs.pop('subfolder')
+    #     # 用 config 调用父类的 from_pretrained，并加入其他 kwargs
+    #     model = super(FreeUUNet2DConditionModel, cls).from_pretrained(pretrained_model_name_or_path, subfolder=subfolder)
+    #
+    #     # 将 freeu_args 添加到模型实例
+    #     cls.freeu_args = freeu_args if freeu_args is not None else []
+    #     return model
     def forward(
             self,
             sample: torch.FloatTensor,
@@ -302,12 +323,12 @@ class FreeUUNet2DConditionModel(UNet2DConditionModel):
             # Add the Free-U trick here!
             # Fourier Filter
             if sample.shape[1] == 1280:
-                sample[:, :640] *= 1.2  # 1.1  # For SD2.1
-                sample = Fourier_filter(sample, threshold=1, scale=0.9)
+                sample[:, :640] *= self.freeu_args[0] #1.2  # 1.1  # b1,For SD2.1
+                sample = Fourier_filter(sample, threshold=1, scale=self.freeu_args[2]) # scale:s1 0.9
 
             if sample.shape[1] == 640:
-                sample[:, :320] *= 1.4  # 1.2  # For SD2.1
-                sample = Fourier_filter(sample, threshold=1, scale=0.2)
+                sample[:, :320] *= self.freeu_args[1] # 1.4  # 1.2  # b2, For SD2.1
+                sample = Fourier_filter(sample, threshold=1, scale=self.freeu_args[3]) # scale:s2 0.2
 
             # if we have not reached the final block and need to forward the
             # upsample size, we do it here

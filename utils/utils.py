@@ -13,6 +13,7 @@ from diffusers import DDIMScheduler, StableDiffusionControlNetPipeline, StableDi
 from .controlnet_utils import CONTROLNET_DICT, control_preprocess
 from einops import rearrange
 
+from  cross_image_utils.edge_extraction import load_edge
 FRAME_EXT = [".jpg", ".png"]
 
 
@@ -119,8 +120,14 @@ def glob_frame_paths(video_path):
 # def load_image(image_path,h,w,device="cuda"):
 #     image = load_size(image_path)
 #     return image # numpy cpu
-def load_video(video_path, h, w, frame_ids=None, device="cuda"):
-    
+def load_video(video_path, h, w,frame_ids=None, device="cuda"):
+    '''
+    输入: 图片路径 + 保存的路径
+    输出: cuda tensor
+    video_path,video_save
+    video_path,edge_save # 需要检测
+    edge_path,edge_save调用原始的函数
+    '''
 
     if ".mp4" in video_path:
         frames, _, _ = read_video(
@@ -136,7 +143,20 @@ def load_video(video_path, h, w, frame_ids=None, device="cuda"):
         # frame_ls = load_image(video_path)
         # frames = torch.cat(frame_ls)
         frames = load_image(video_path)
-    else:
+    else: # Todo 现在只对切换为帧的能够use_edge
+        # if 'edge' in video_save_dir:
+        #     # if len(glob_frame_paths(video_save_dir)) == 0:  # edge的图片为空
+        #     frame_paths = glob_frame_paths(video_path)
+        #     frame_ls = []
+        #     for frame_path in frame_paths:
+        #         save_path = os.path.join(video_save_dir,os.path.basename(frame_path))
+        #         if os.path.exists(save_path): # edge已经存在
+        #             frame = load_image(save_path)
+        #         else:
+        #             frame = load_edge(frame_path, device="cpu", method=edge_method, thresholds=[0.55], save_path=save_path)
+        #         frame_ls.append(frame)
+        #     frames = torch.cat(frame_ls)
+        # else:
         frame_paths = glob_frame_paths(video_path)
         frame_ls = []
         for frame_path in frame_paths:
@@ -333,6 +353,9 @@ def get_controlnet_kwargs(controlnet, x, cond, t, controlnet_cond, controlnet_sc
 
 
 def get_frame_ids(frame_range, frame_ids=None):
+    '''
+    给定frame_ids则直接生成，未给定则按照frame_range生成
+    '''
     if frame_ids is None:
         frame_ids = list(range(*frame_range))
     frame_ids = sorted(frame_ids)

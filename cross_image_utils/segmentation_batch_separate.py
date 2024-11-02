@@ -20,7 +20,7 @@ Self-segmentation technique taken from Prompt Mixing: https://github.com/orpatas
 processor当中首先update_attention
 
 """
-
+from cross_image_utils.adain import masked_adain,adain
 
 
 class Segmentor:
@@ -51,6 +51,12 @@ class Segmentor:
         self.self_attention_dir = self.config.self_attention_dir
         self.cluster_path = self.config.cluster_path
         self.mask_path = self.config.mask_path
+    def setdirs(self,dirs):
+        self.cross_attention_dir = dirs[0]
+        self.self_attention_dir = dirs[1]
+        self.cluster_path = dirs[2]
+        self.mask_path = dirs[3]
+
     def update_attention(self, attn, is_cross):
         # 根据attn形状和类型（self or cross）更新内部属性
         res = int(attn.shape[2] ** 0.5) # attn_weight:(12,8,1024,1024)
@@ -267,7 +273,8 @@ class Segmentor:
 
         else:
             clusters_style, clusters_struct = self.cluster(res=res)  # (64,64)
-            self.mask_style = self.create_mask(clusters_style, self.cross_attention_32 if res == 32 else self.cross_attention_64, STYLE_INDEX)
+            if chunk_index == 0: # mask_style值保存一次
+                self.mask_style = self.create_mask(clusters_style, self.cross_attention_32 if res == 32 else self.cross_attention_64, STYLE_INDEX)
             self.mask_struct = self.create_mask(clusters_struct, self.cross_attention_32 if res == 32 else self.cross_attention_64, STRUCT_INDEX)
             show_tensor_image(str(self.mask_path),self.mask_style,'style',str(res))
             show_tensor_image(str(self.mask_path),self.mask_struct, 'struct', str(res))
@@ -294,3 +301,4 @@ if __name__ == "__main__":
     segmentor.update_attention(attn_weight, is_cross)
     mask_style_32, mask_struct_32, mask_style_64, mask_struct_64 = segmentor.get_object_masks()
     print(mask_style_32.shape,mask_style_64.shape)
+

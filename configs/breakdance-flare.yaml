@@ -1,32 +1,34 @@
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
 input_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore" # Accept .mp4, .gif file or a folder with png/jpg sequence
-work_dir: "outputs/breakdance-flare"
-#app_image_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_sketch/ref_sample3.jpg"
-#app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/ref_sample3"
+work_dir: "outputs/" # 不用写视频名称
+
 height: 512
 width: 512
+## cross image attention
 use_masked_adain: False
 load_latents: True  # false则重新invert
-#perform_cross_frame: True # 设置为True的时候chunk_size至少为2
-#perform_cross_frame_with_prev: False # 设置为True的时候chunk_size为1
-perform_cross_frame: False #
-perform_cross_frame_with_prev: True
+perform_cross_frame: True # 设置为True的时候chunk_size至少为2
+perform_cross_frame_with_prev: False # 设置为True的时候chunk_size为1
+#perform_cross_frame: False #
+#perform_cross_frame_with_prev: True
 latent_update: False
 start_frame: 9
-
+update_with_matching: False
+update_with_matching_guidance: 1
+update_with_matching_start_time: 51
+update_with_matching_end_time: 301
 inversion:
   save_path: "${work_dir}/latents"
 #  prompt: "a dog walking on the ground near a bush."
   prompt: "a photo of an object"
-  steps: 50
+  steps: 100 # inversion的时间步
   save_intermediate: True # Save intermediate latents. Required when using PnP.
-  save_steps: 50
-  n_frames: 15 # 70
+  n_frames: 11 # 15 # 70
   force: True # Force run inversion even inverted latents have been found
 
 generation:
   control: "pnp"
-  chunk_size: 1  #
+  chunk_size: 2  #
   guidance_scale: 7.5 # CFG scale
   n_timesteps: 50
   negative_prompt: "ugly, blurry, low res"

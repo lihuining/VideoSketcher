@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from cross_image_utils.latent_utils import load_latents, load_noise
 import torch.nn as nn
@@ -34,16 +35,14 @@ from cross_image_utils.ddpm_inversion import get_variance
 class Inverter(nn.Module):
     def __init__(self, pipe, scheduler, config,cross_image_config):
         super().__init__()
-
-        self.device = config.device
-        self.use_depth = config.sd_version == "depth"
-        self.model_key = config.model_key
-
-        self.config = config
+        ### cross_image_config
         self.cross_image_config = cross_image_config
-        self.num_inference_steps = cross_image_config.num_timesteps # 总的timestep
-        inv_config = config.inversion
+        self.device = config.device
+        self.model_key = config.model_key
+        self.config = config
 
+        inv_config = config.inversion
+        self.num_inference_steps = inv_config.steps  # 总的timestep
         float_precision = inv_config.float_precision if "float_precision" in inv_config else config.float_precision
         if float_precision == "fp16":
             self.dtype = torch.float16
@@ -64,12 +63,6 @@ class Inverter(nn.Module):
             except ModuleNotFoundError:
                 print("[WARNING] xformers not found. Disable xformers attention.")
 
-        self.control = inv_config.control
-        if self.control != "none":
-            self.controlnet = pipe.controlnet
-
-        self.controlnet_scale = inv_config.control_scale
-
         scheduler.set_timesteps(self.num_inference_steps)
         self.timesteps_to_save = scheduler.timesteps
         # scheduler.set_timesteps(inv_config.steps)
@@ -77,17 +70,13 @@ class Inverter(nn.Module):
         self.scheduler = scheduler
 
         self.skip_steps = inv_config.skip_steps
-        self.timesteps = self.pipe.scheduler.timesteps[self.skip_steps:]
+        self.timesteps = self.pipe.scheduler.timesteps[self.skip_steps:] # forwrad step
         self.t_to_idx = {int(v): k for k, v in enumerate(self.timesteps)}  # key:t ,value:idx {1:67,11:66}
-
-
 
         self.prompt=inv_config.prompt
         self.recon=inv_config.recon
 
         self.save_latents=inv_config.save_intermediate
-        self.use_blip=inv_config.use_blip
-        # self.steps=inv_config.steps
         self.batch_size = inv_config.batch_size
         self.force = inv_config.force
 
@@ -445,7 +434,7 @@ class Inverter(nn.Module):
                         # torch.save(z, pth)
                         if idx != len(timesteps)-1:
                             torch.save(z, pth)
-                        else:
+                        else: # last step
                             torch.save(torch.zeros_like(z), pth)
                         print(f"[INFO] inverted latent saved to: {pth}")
 
@@ -458,7 +447,7 @@ class Inverter(nn.Module):
         return xt, zs, xts
     def inversion_reverse_process_batch(self,
                                   xT, # [B,C,H,W]
-                                  etas=0,
+                                  etas=0, # 1
                                   prompts="", # [self.prompt]
                                   cfg_scales=None,
                                   prog_bar=False,
@@ -769,19 +758,19 @@ class Inverter(nn.Module):
         image_extensions = ['png', 'jpg', 'jpeg', 'bmp', 'tiff']
         if os.path.isfile(data_path) and (data_path.split('.')[-1] in image_extensions):
             frames = load_video(self.config.app_image_path, self.frame_height, self.frame_width,device=self.device)  # tensor:(64,3,52,52)
-            save_path = os.path.join(self.config.app_image_save_path,os.path.basename(self.cross_image_config.app_image_path).split('.')[0])
+            save_path = os.path.join(self.config.app_image_save_path,os.path.basename(self.config.app_image_path).split('.')[0])
             save_path = get_latents_dir(save_path, self.model_key)
             if self.check_latent_exists(save_path) and not self.force: # _981
                 print(f"[INFO] inverted latents exist at: {save_path}. Skip inversion! Set 'inversion.force: True' to invert again.")
-                return
+                # return
             os.makedirs(save_path, exist_ok=True)
             # conds, prompts = self.prepare_cond(self.prompt, 1)
             latents = self.encode_imgs(frames)
             torch.cuda.empty_cache()
             print(f"[INFO] clean latents shape: {latents.shape}")
 
-
-            # wt, zs, wts = self.inversion_forward_process(x0=latents,save_path= save_path,frame_id=0,etas=1,prog_bar=True,prompt=self.prompt,cfg_scale=3.5) # 单帧frame_id = 0
+            print("load image",self.config.app_image_path,"save_path",save_path)
+            wt, zs, wts = self.inversion_forward_process(x0=latents,save_path= save_path,frame_id=0,etas=1,prog_bar=True,prompt=self.prompt,cfg_scale=3.5) # 单帧frame_id = 0
             # if self.recon:
             #     latent_reconstruction, _ = self.inversion_reverse_process(xT=wts[self.skip_steps], etas=1,prompts=[self.prompt] ,cfg_scales=[3.5], prog_bar=True,
             #                                       zs=zs[self.skip_steps:])
@@ -800,7 +789,6 @@ class Inverter(nn.Module):
             recon_save_path = os.path.join(save_path, 'recon_frames')
             save_frames(recon_frames, recon_save_path)
         else:
-
             recon_frames_list = []
             # 先进行video加载
             frames = load_video(data_path, self.frame_height, self.frame_width,device=self.device)  # tensor:(64,3,52,52)
@@ -890,19 +878,25 @@ class Inverter(nn.Module):
 
 if __name__ == "__main__":
     config,cross_image_config = load_config()
-    pipe,model_key = get_stable_diffusion_model() # ???
+    pipe,model_key = get_stable_diffusion_model(sd_version=config.sd_version) # ???
 
     # pipe, scheduler, model_key = init_model(
     #     config.device, config.sd_version, config.model_key, config.inversion.control, config.float_precision)
     # config.model_key = model_key
 
-
+    start_time = time.time()
     seed_everything(config.seed)
     inversion = Inverter(pipe, pipe.scheduler, config,cross_image_config)
-    # inversion(config.input_path, config.inversion.save_path)
-    inversion(cross_image_config.app_image_path, config.app_image_save_path)
+    inversion(config.input_path, config.inversion.save_path)
+    # style_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
+    # for stylename in os.listdir(style_dir):
+    #     inversion.config.app_image_path = os.path.join(style_dir,stylename)
+    #     inversion(inversion.config.app_image_path, config.app_image_save_path)
+    end_time = time.time()
+    print("total cost time is",end_time - start_time)
 '''
 python invert.py --config configs/tea-pour-debug.yaml
+--config configs/default.yaml
 recon_frames = self.decode_latents_batch(xts[:,-1,])
 recon_save_path="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug"
 save_frames(recon_frames, recon_save_path)

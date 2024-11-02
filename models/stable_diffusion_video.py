@@ -1,5 +1,7 @@
+import os.path
+import time
 from typing import Any, Callable, Dict, List, Optional, Union
-
+from PIL import Image
 import numpy as np
 import torch
 from diffusers import StableDiffusionPipeline
@@ -7,13 +9,23 @@ from diffusers.models import AutoencoderKL
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import rescale_noise_cfg
 from diffusers.schedulers import KarrasDiffusionSchedulers
-from requests.packages import target
+# from requests.packages import target
 from tqdm import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, CLIPImageProcessor
 
 from config import Range
+from constants import OUT_INDEX
 from models.unet_2d_condition import FreeUUNet2DConditionModel
+from cross_image_utils.gluestick.get_matching import get_sparse_matching_results
+from cross_image_utils.sketch_loss_utils import compute_sketch_matching_loss
+from utils import save_frames
 
+
+def set_requires_grad(model, value):
+    for param in model.parameters():
+        param.requires_grad = value
+def spherical_dist_loss(x, y):
+    return -x@y.T
 
 class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
     """ A modification of the standard StableDiffusionPipeline to incorporate our cross-image attention."""
@@ -29,9 +41,116 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
         super().__init__(
             vae, text_encoder, tokenizer, unet, scheduler, safety_checker, feature_extractor, requires_safety_checker
         )
+        print("before:VAE requires_grad:", any(param.requires_grad for param in self.vae.parameters()))
+        self.vae.requires_grad_(False)
+        self.unet.requires_grad_(False)
+        self.text_encoder.requires_grad_(False)
+        print("after:VAE requires_grad:", any(param.requires_grad for param in self.vae.parameters()))
+
+        # set_requires_grad(self.clip_model, False)
+
+    @torch.enable_grad()
+    def cond_fn(self,
+                noise_pred_list,
+                latents,
+                chunk_size,
+                t, # 当前时间步
+                per_step_weight,
+                pred_x0,
+                clip_model,
+                struct_gt,
+                chunk_index,
+                matching_save_dir,
+                prev_latents_x0_list,
+                config,
+                ):
+        loss = torch.tensor(0.0).to(dtype=latents.dtype, device=latents.device)
+        if config.latent_update:
+            if all((isinstance(value, (list, torch.Tensor)) and len(value) != 0) or (
+                    isinstance(value, torch.Tensor) and value.numel() != 0) for value in
+                   prev_latents_x0_list.values()):
+                pre_chunk_last = prev_latents_x0_list[t.item()].unsqueeze(0)  # [1,4,64,64]
+                cur_chunk = pred_x0[:chunk_size][1:, ]
+                target_chunk = torch.cat([pre_chunk_last, cur_chunk], dim=0)
+
+                with torch.enable_grad():
+                    # 初始化 loss 为 0
+                    # loss = torch.tensor(0.0).to(pred_x0.device)
+                    dummy_pred_chunk = pred_x0[:chunk_size].clone().detach()
+                    dummy_pred_chunk = dummy_pred_chunk.requires_grad_(requires_grad=True)
+                    loss = per_step_weight * torch.nn.functional.mse_loss(target_chunk, dummy_pred_chunk)
+                    # for frame_id in range(chunk_size):
+                    #     # dummy_pred = pred_x0[:chunk_size][frame_id].clone().detach()
+                    #     # dummy_pred = dummy_pred.requires_grad_(requires_grad=True)
+                    #     dummy_pred = dummy_pred_chunk[frame_id]
+                    #     target = target_chunk[frame_id]
+                    #     loss += per_step_weight * torch.nn.functional.mse_loss(target, dummy_pred)
+                    loss.backward()  # 保留计算图
+                    latents[:chunk_size] = latents[
+                                           :chunk_size] + dummy_pred_chunk.grad.clone() * -1.  # max:3.46 0.06 norm:91
+
+        ## with update
+        if config.update_with_clip or config.update_with_matching:
+            stylized_latents = latents[:chunk_size].detach().requires_grad_(True)
+            alpha_prod_t = self.scheduler.alphas_cumprod[t]
+            beta_prod_t = 1 - alpha_prod_t
+            # with torch.no_grad():
+            stylized_image = self.vae.decode(stylized_latents / self.vae.config.scaling_factor, return_dict=False)[
+                0]  # (3,3,512,512) tensor[0,1]
+            stylized_image_tensor = (stylized_image / 2 + 0.5).clamp(0, 1)  # torch.Size([2, 3, 1024, 1024]), [0, 1]
+        if config.update_with_clip and t.item() >= config.update_with_clip_start_time and t.item() <= config.update_with_clip_end_time:
+            # with torch.no_grad():
+            _, content_stylized_image, style_stylized_image = clip_model(stylized_image_tensor)
+            _, struct_content, struct_style = clip_model(struct_gt)
+            for i in range(chunk_size):
+                loss += config.update_with_clip_guidance * spherical_dist_loss(content_stylized_image[i],
+                                                                               struct_content[i])
+        if config.update_with_matching and t.item() >= config.update_with_matching_start_time and t.item() <= config.update_with_matching_end_time: # and chunk_index != 0
+
+            # from PIL import Image
+            # vis_image = stylized_image.detach().cpu().permute(0, 2, 3, 1).numpy() # (2, 1024, 1024, 3)
+            # vis_image = (vis_image * 255).round().astype("uint8")
+            # vis_image = Image.fromarray(vis_image[0])
+            # vis_image.save("image.jpg")
+            # stylized_image_pil = self.image_processor.postprocess(stylized_image.detach(), output_type=output_type,
+            #                                          do_denormalize=[True] * stylized_image.shape[0])  # list:3 pil,detach之后才能转化为numpy
+            for i in range(chunk_size - 1):
+                sparse_matching_lines, sparse_matching_points = get_sparse_matching_results(stylized_image_tensor[i],
+                                                                                            stylized_image_tensor[
+                                                                                                i + 1],
+                                                                                            timestep=t.item(),
+                                                                                            save_dir=matching_save_dir,
+                                                                                            chunk_index=chunk_index)
+                loss += compute_sketch_matching_loss(stylized_image_tensor[i], stylized_image_tensor[i + 1],
+                                                     sparse_matching_lines, sparse_matching_points)[0]
+            # loss = loss.to(dtype=latents.dtype)
+
+            # loss = torch.tensor(loss, dtype=latents.dtype).to(device=latents.device)
+            # loss = loss
+            print("Requires grad (stylized_latents):", stylized_latents.requires_grad)
+            print("Loss requires grad:", loss.requires_grad)
+            if loss.item() == 0:
+                print("Loss is 0, skipping gradient computation.")
+            else:
+                grads = -torch.autograd.grad(loss * config.update_with_matching_guidance, stylized_latents)[0]
+                print("gradient max", torch.max(grads))
+                noise_pred_list[OUT_INDEX] = noise_pred_list[OUT_INDEX] - torch.sqrt(beta_prod_t) * grads
+        return noise_pred_list
+    def encode_text(self, prompts,device):
+        text_input = self.tokenizer(
+            prompts,
+            padding="max_length",
+            max_length=self.tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt",
+        )
+        with torch.no_grad():
+            text_encoding = self.text_encoder(text_input.input_ids.to(device))[0]
+        return text_encoding
     @torch.no_grad()
     def __call__(
             self,
+            chunk_index: int = 50,
             prompt: Union[str, List[str]] = None,
             height: Optional[int] = None,
             width: Optional[int] = None,
@@ -56,9 +175,19 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             zs: Optional[List[torch.Tensor]] = None,
             # perform_cross_frame: bool = True,
             prev_latents_x0_list = {},
-            latent_update = False,
+            config = None,
+            clip_model = None,
+            struct_gt = None,
+            # latent_update = False,
+            # update_with_matching = False,
+            # update_with_matching_guidance: float = 50.0,
+            # update_with_matching_start_time: Optional[int] = 1,
+            # update_with_matching_end_time: Optional[int] = 1,
+            matching_save_dir: Optional[str] = "",
+            free_u_args = [],
+            enable_edit = False,
     ):
-
+        # config
         # 0. Default height and width to unet
         height = height or self.unet.config.sample_size * self.vae_scale_factor
         width = width or self.unet.config.sample_size * self.vae_scale_factor
@@ -86,17 +215,30 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
         text_encoder_lora_scale = (
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
-        prompt_embeds = self._encode_prompt(
-            prompt,
-            device,
-            num_images_per_prompt,
-            do_classifier_free_guidance,
-            negative_prompt,
-            prompt_embeds=prompt_embeds,
-            negative_prompt_embeds=negative_prompt_embeds,
-            lora_scale=text_encoder_lora_scale,
-        ) # (3,77,768) [】没有cfg则为positive结果
 
+        prompt_embeds = self.encode_text(prompt*len(latents),device)
+        uncond_prompt_embeds = self.encode_text([""]*len(latents),device)
+        # Todo:为什么这两个embedding结果不一样？？？
+        # prompt_embeds = self._encode_prompt(
+        #     prompt,
+        #     device,
+        #     num_images_per_prompt,
+        #     do_classifier_free_guidance,
+        #     negative_prompt,
+        #     prompt_embeds=prompt_embeds,
+        #     negative_prompt_embeds=negative_prompt_embeds,
+        #     lora_scale=text_encoder_lora_scale,
+        # ) # (3,77,768) [】没有cfg则为positive结果
+        # uncond_prompt_embeds = self._encode_prompt(
+        #     "",
+        #     device,
+        #     num_images_per_prompt,
+        #     do_classifier_free_guidance,
+        #     negative_prompt,
+        #     prompt_embeds=prompt_embeds,
+        #     negative_prompt_embeds=negative_prompt_embeds,
+        #     lora_scale=text_encoder_lora_scale,
+        # ) # (3,77,768) [】没有cfg则为positive结果
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         start_index = zs[0].shape[1]
@@ -125,22 +267,34 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
 
         count = 0 # 统计到目前为止的step数
         per_step_weight = 100.0 # 每个step的权重
-        for t in op:
+        for t in op: # 671 timestep10 end:1
             i = t_to_idx[int(t)] # time:671 i:1
             if i > 25:
                 per_step_weight = 0
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
-            noise_pred_swap = self.unet(
+            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t) # 输出结果一样
+            # with torch.no_grad():
+            if do_classifier_free_guidance:
+                noise_pred_swap = self.unet(
+                    latent_model_input,
+                    t,
+                    encoder_hidden_states=prompt_embeds,
+                    cross_attention_kwargs={'perform_swap': True,'time_step':t.item()}, # 'perform_cross_frame': perform_cross_frame ,'free_u_args':free_u_args
+                    return_dict=False,
+                )[0] # (6,4,64,64)
+            noise_pred_swap_uncond = self.unet(
                 latent_model_input,
                 t,
-                encoder_hidden_states=prompt_embeds,
-                cross_attention_kwargs={'perform_swap': True,'time_step':t.item()}, # 'perform_cross_frame': perform_cross_frame
+                encoder_hidden_states=uncond_prompt_embeds,
+                cross_attention_kwargs={'perform_swap': True,'time_step':t.item()}, # 'perform_cross_frame': perform_cross_frame ,'free_u_args':free_u_args
                 return_dict=False,
             )[0] # (6,4,64,64)
-            noise_pred = noise_pred_swap
+            if do_classifier_free_guidance:
+                noise_pred = noise_pred_swap_uncond + guidance_scale * (noise_pred_swap - noise_pred_swap_uncond)
+            else:
+                noise_pred = noise_pred_swap_uncond
+            #noise_pred_swap
             # if do_classifier_free_guidance:
             #     noise_swap_pred_uncond, noise_swap_pred_text = noise_pred_swap.chunk(2)
             #     noise_pred = noise_swap_pred_uncond + guidance_scale * (
@@ -193,8 +347,39 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 chunk_size = 1 # 单张图[1,4096,320]
             else:
                 chunk_size = b // 3  
-            latents_list  = torch.split(latents, [chunk_size]*3, dim=0) # content1, style, content2 保持了原来的顺序和数据内容
-            noise_pred_list = torch.split(noise_pred, [chunk_size]*3, dim=0) # (2,4,64,64)
+            latents_list  = list(torch.split(latents, [chunk_size]*3, dim=0)) # content1, style, content2 保持了原来的顺序和数据内容
+            noise_pred_list = list(torch.split(noise_pred, [chunk_size]*3, dim=0)) # (2,4,64,64)
+
+            #latents,pred_x0 = torch.cat([self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t, noise_pred_list[latent_idx], eta) for latent_idx in range(len(noise_pred_list))],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
+            # 后处理 # latent_update
+            # if not all(not value for value in prev_latents_x0_list.values()): # 所有值均不为空,RuntimeError: Boolean value of Tensor with more than one value is ambiguous
+
+            if i > 1 and enable_edit: # i>1确保pred_x0已经计算过
+                noise_pred_list = self.cond_fn(noise_pred_list,latents,chunk_size,t,per_step_weight,pred_x0,clip_model,struct_gt,chunk_index,matching_save_dir,prev_latents_x0_list,config)
+            # else: # Todo: 检查为什么单独运行这一段输出的是彩色的图像？
+            #     stylized_latents = latents[:chunk_size].clone().detach().requires_grad_(True)
+            #     print('time step is',t.item(),'torch equal',torch.equal(stylized_latents[0],stylized_latents[1]))
+            #     alpha_prod_t = self.scheduler.alphas_cumprod[t]
+            #     beta_prod_t = 1 - alpha_prod_t
+            #     with torch.no_grad():
+            #         stylized_image = self.vae.decode(stylized_latents / self.vae.config.scaling_factor, return_dict=False)[0]  # (3,3,512,512) tensor[0,1]
+            #     # loss = torch.tensor(0.0).to(dtype=latents.dtype, device=latents.device)
+            #     stylized_image_tensor = (stylized_image / 2 + 0.5).clamp(0,1)  # torch.Size([2, 3, 1024, 1024]), [0, 1]
+            #     # vis_image = stylized_image.detach().cpu().permute(0, 2, 3, 1).numpy() # (2, 1024, 1024, 3)
+            #     # vis_image = (vis_image * 255).round().astype("uint8")
+            #     # vis_image = Image.fromarray(vis_image[0])
+            #     # vis_image.save(os.path.join(matching_save_dir,f"image_{t.item()}.jpg"))
+            #     stylized_image_pil = self.image_processor.postprocess(stylized_image.detach(), output_type=output_type,
+            #                                              do_denormalize=[True] * stylized_image.shape[0])  # list:3 pil,detach之后才能转化为numpy
+            #     joined_images = np.concatenate(stylized_image_pil[::-1], axis=1)
+            #     Image.fromarray(joined_images).save(os.path.join(matching_save_dir,f"image_{t.item()}_combined.jpg"))
+            #     for i in range(chunk_size-1):
+            #         sparse_matching_lines,sparse_matching_points = get_sparse_matching_results(stylized_image_tensor[i], stylized_image_tensor[i+1],timestep=t.item(),save_dir=matching_save_dir,chunk_index=chunk_index)
+            #         loss = compute_sketch_matching_loss(stylized_image_tensor[i],stylized_image_tensor[i+1],sparse_matching_lines,sparse_matching_points)
+            #     print(torch.equal(stylized_latents,latents[:chunk_size]))
+
+            noise_pred_list = tuple(noise_pred_list)
+            latents_list = tuple(latents_list)
             latents_list_next = []
             pred_x0_list = []
             for latent_idx in range(len(noise_pred_list)):
@@ -202,42 +387,18 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 latents_list_next.append(latent)
                 pred_x0_list.append(pred_x0)
             latents,pred_x0 = torch.cat(latents_list_next,dim=0),torch.cat(pred_x0_list,dim=0)
-            #latents,pred_x0 = torch.cat([self.perform_ddpm_step(t_to_idx, zs[latent_idx], latents_list[latent_idx], t, noise_pred_list[latent_idx], eta) for latent_idx in range(len(noise_pred_list))],dim=0) # perform_ddpm_step 需要对三个latents使用不同的zs，因此 循环处理,单次循环输出[4,64,64]
-            # 后处理 # latent_update
-            # if not all(not value for value in prev_latents_x0_list.values()): # 所有值均不为空,RuntimeError: Boolean value of Tensor with more than one value is ambiguous
-            if latent_update:
-                if all((isinstance(value, (list, torch.Tensor)) and len(value) != 0) or (
-                            isinstance(value, torch.Tensor) and value.numel() != 0) for value in
-                               prev_latents_x0_list.values()):
-                    pre_chunk_last = prev_latents_x0_list[t.item()].unsqueeze(0) # [1,4,64,64]
-                    cur_chunk = pred_x0[:chunk_size][1:,]
-                    target_chunk = torch.cat([pre_chunk_last,cur_chunk],dim=0)
-
-                    with torch.enable_grad():
-                        # 初始化 loss 为 0
-                        # loss = torch.tensor(0.0).to(pred_x0.device)
-                        dummy_pred_chunk = pred_x0[:chunk_size].clone().detach()
-                        dummy_pred_chunk = dummy_pred_chunk.requires_grad_(requires_grad=True)
-                        loss = per_step_weight * torch.nn.functional.mse_loss(target_chunk, dummy_pred_chunk)
-                        # for frame_id in range(chunk_size):
-                        #     # dummy_pred = pred_x0[:chunk_size][frame_id].clone().detach()
-                        #     # dummy_pred = dummy_pred.requires_grad_(requires_grad=True)
-                        #     dummy_pred = dummy_pred_chunk[frame_id]
-                        #     target = target_chunk[frame_id]
-                        #     loss += per_step_weight * torch.nn.functional.mse_loss(target, dummy_pred)
-                        loss.backward() # 保留计算图
-                        latents[:chunk_size] = latents[:chunk_size] + dummy_pred_chunk.grad.clone() * -1.  # max:3.46 0.06 norm:91
-
-
             # call the callback, if provided
-            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+            if enable_edit and i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
                 # progress_bar.update()
                 if callback is not None and i % callback_steps == 0:
                     callback(i, t, latents,pred_x0)
 
             count += 1
-
+            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
+        # time.sleep(3)
         if not output_type == "latent":
+            # with torch.no_grad():
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0] # (3,3,512,512)
             image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
         else:
@@ -250,6 +411,7 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             do_denormalize = [not has_nsfw for has_nsfw in has_nsfw_concept]
 
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize) # list:3 pil
+
 
         # Offload last model to CPU
         if hasattr(self, "final_offload_hook") and self.final_offload_hook is not None:
