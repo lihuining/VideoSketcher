@@ -3,6 +3,8 @@
 2.
 
 '''
+from operator import index
+
 from PIL import Image, ImageDraw
 import matplotlib
 matplotlib.use('Agg')
@@ -158,66 +160,146 @@ def vis_query_distributions(query,save_dir,postfix=""):
     plt.ylabel('frequency')
     plt.grid(True)
     plt.savefig(os.path.join(save_dir, f"query_distribution_{postfix}.png"))
-def visualize_and_save_features_pca(feats_map, t, save_dir, layer_idx,n_components=3, suffix=""):
+
+def visualize_unet_features_pca(feats_map, t, save_dir, layer_idx,n_components=3, suffix=""):
     """
-    feats_map: [B, N, D],query:[8, 1024, 80] cuda tensor
+    feats_map: [B, N, D],feature:[320, 64, 64] cuda tensor
     t: timestep
     save_dir: pic save dir
     layer_idx: current layer idx
     grid_size: the size of the grid to combine the images (rows, columns)
     """
-    B = len(feats_map) # [8,256,160]
-    feats_map = feats_map.flatten(0, -2)
-    feats_map = feats_map.detach().cpu().numpy()
+    b,size,size = feats_map.shape
+    # 将特征重塑为 (320, 64*64)
+    feature_reshaped = feats_map.detach().cpu().numpy().reshape(-1,b)
+
+    # 进行PCA分解
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(feature_reshaped)
+
+    # 将PCA结果重塑为 (64, 64, 3)
+    pca_image = pca_result.reshape(size, size, n_components)
+
+    # 将PCA结果归一化到 [0, 255]
+    pca_image_normalized = ((pca_image - pca_image.min()) / (pca_image.max() - pca_image.min()) * 255).astype(np.uint8)
+
+    # 创建PIL图像对象
+    combined_img = Image.fromarray(pca_image_normalized).resize((256,256))
+
+    # 保存图像
+    if not suffix:
+        combined_img.save(
+            os.path.join(save_dir, f"combined_time_{t.item()}_layer_{layer_idx}_n_components_{n_components}.png"))
+    else:
+        combined_img.save(os.path.join(save_dir,
+                                       f"combined_time_{t.item()}_layer_{layer_idx}_n_components_{n_components}_{suffix}.png"))
+
+
+def visualize_and_save_mean_features_pca(feats_map, t, save_dir, layer_idx, n_components=3, suffix=""):
+    """
+    feats_map: [B, N, D],query:[8, 1024, 80] cuda tensor
+    t: timestep,int
+    save_dir: pic save dir
+    layer_idx: current layer idx
+    grid_size: the size of the grid to combine the images (rows, columns)
+    """
+    if len(feats_map.shape) == 3:  # [B,N,D]格式
+        feats_map = torch.mean(feats_map, dim=0) # (4096,64)
+        # feats_map = feats_map.flatten(0, -2)  # [8*256,160]
+        feats_map = feats_map.detach().cpu().numpy()  #
+        batch_size = 1
+    if len(feats_map.shape) == 4:
+        batch_size = feats_map.shape[0]
+        feats_map = torch.mean(feats_map, dim=1)  # (2,256,160)
+        feats_map = feats_map.flatten(0, -2) # (2*256,160)
+        feats_map = feats_map.detach().cpu().numpy()  #
 
     # Apply PCA
-    pca = PCA(n_components=n_components)  # To keep 3 components for RGB
+    pca = PCA(n_components=n_components)  # To keep 3 components for RGB -> [8*256,3]
     pca.fit(feats_map)
     feature_maps_pca = pca.transform(feats_map)  # N X 3
-    feature_maps_pca = feature_maps_pca.reshape(B, -1, 3)  # B x (H * W) x 3
-
-    # List to hold individual PCA images
-    pca_images = []
-
-    # Generate PCA images and add to list
-    for i, experiment in enumerate(feature_maps_pca):
+    feature_maps_pca = feature_maps_pca.reshape(batch_size,-1, 3)  # (H * W) x 3
+    for i in range(batch_size):
+        # Generate PCA images and add to list
         pca_img = feature_maps_pca[i]  # (H * W) x 3
         h = w = int(np.sqrt(pca_img.shape[0]))  # Assuming square image
         pca_img = pca_img.reshape(h, w, 3)
-
         # Normalize the PCA image to [0, 1] range
         pca_img_min = pca_img.min(axis=(0, 1))
         pca_img_max = pca_img.max(axis=(0, 1))
         pca_img = (pca_img - pca_img_min) / (pca_img_max - pca_img_min)
-
         # Convert to uint8 image
-        pca_img = Image.fromarray((pca_img * 255).astype(np.uint8))
+        combined_img = Image.fromarray((pca_img * 255).astype(np.uint8))
+        # Save the final combined image
+        if not suffix:
+            combined_img.save(
+                os.path.join(save_dir, f"time_{t}_layer_{layer_idx}_n_components_{n_components}_index{i}.png"))
+        else:
+            combined_img.save(
+                os.path.join(save_dir, f"time_{t}_layer_{layer_idx}_n_components_{n_components}_{suffix}_index{i}.png"))
 
-        # Append to list
-        pca_images.append(pca_img)
 
-    # # Combine all PCA images into one large grid
-    # grid_rows, grid_cols = 1,n_components
-    # assert grid_rows * grid_cols >= B, "Grid size is too small to fit all images."
-    grid_cols = 1
-    grid_rows = B
+def visualize_and_save_features_pca(feats_map, t, save_dir, layer_idx,n_components=3, suffix=""):
+    """
+    feats_map: [B, N, D],query:[8, 1024, 80] cuda tensor
+    t: timestep,int
+    save_dir: pic save dir
+    layer_idx: current layer idx
+    grid_size: the size of the grid to combine the images (rows, columns)
+    """
+    if len(feats_map.shape) == 3: # [B,N,D]格式
+        B = len(feats_map) # [8,256,160]
+        feats_map = feats_map.flatten(0, -2) # [8*256,160]
+        feats_map = feats_map.detach().cpu().numpy() #
 
-    # Get the size of a single image
-    img_width, img_height = pca_images[0].size
+        # Apply PCA
+        pca = PCA(n_components=n_components)  # To keep 3 components for RGB -> [8*256,3]
+        pca.fit(feats_map)
+        feature_maps_pca = pca.transform(feats_map)  # N X 3
+        feature_maps_pca = feature_maps_pca.reshape(B, -1, 3)  # B x (H * W) x 3
 
-    # Create a blank image for the grid
-    combined_img = Image.new('RGB', (img_width * grid_cols, img_height * grid_rows))
+        # List to hold individual PCA images
+        pca_images = []
 
-    # Paste each PCA image into the correct position in the grid
-    for idx, img in enumerate(pca_images):
-        row, col = divmod(idx, grid_cols)
-        combined_img.paste(img, (col * img_width, row * img_height))
+        # Generate PCA images and add to list
+        for i, experiment in enumerate(feature_maps_pca):
+            pca_img = feature_maps_pca[i]  # (H * W) x 3
+            h = w = int(np.sqrt(pca_img.shape[0]))  # Assuming square image
+            pca_img = pca_img.reshape(h, w, 3)
 
-    # Save the final combined image
-    if not suffix:
-        combined_img.save(os.path.join(save_dir, f"combined_time_{t}_layer_{layer_idx}_n_components_{n_components}.png"))
-    else:
-        combined_img.save(os.path.join(save_dir, f"combined_time_{t}_layer_{layer_idx}_n_components_{n_components}_{suffix}.png"))
+            # Normalize the PCA image to [0, 1] range
+            pca_img_min = pca_img.min(axis=(0, 1))
+            pca_img_max = pca_img.max(axis=(0, 1))
+            pca_img = (pca_img - pca_img_min) / (pca_img_max - pca_img_min)
+
+            # Convert to uint8 image
+            pca_img = Image.fromarray((pca_img * 255).astype(np.uint8))
+
+            # Append to list
+            pca_images.append(pca_img)
+
+        # # Combine all PCA images into one large grid
+        # grid_rows, grid_cols = 1,n_components
+        # assert grid_rows * grid_cols >= B, "Grid size is too small to fit all images."
+        grid_cols = 1
+        grid_rows = B
+
+        # Get the size of a single image
+        img_width, img_height = pca_images[0].size
+
+        # Create a blank image for the grid
+        combined_img = Image.new('RGB', (img_width * grid_cols, img_height * grid_rows))
+
+        # Paste each PCA image into the correct position in the grid
+        for idx, img in enumerate(pca_images):
+            row, col = divmod(idx, grid_cols)
+            combined_img.paste(img, (col * img_width, row * img_height))
+
+        # Save the final combined image
+        if not suffix:
+            combined_img.save(os.path.join(save_dir, f"combined_time_{t}_layer_{layer_idx}_n_components_{n_components}.png"))
+        else:
+            combined_img.save(os.path.join(save_dir, f"combined_time_{t}_layer_{layer_idx}_n_components_{n_components}_{suffix}.png"))
 ### 输入均为numpy格式 ###
 def grid_show(to_shows, cols,save_path):
     rows = (len(to_shows) - 1) // cols + 1
@@ -412,6 +494,12 @@ def visualize_grid_to_grid_normal(x,y,att_map, image,save_path,postfix, alpha=0.
     # 保存图像
     plt.savefig(os.path.join(save_path,f'{postfix}_index{grid_index}.png'), bbox_inches='tight', pad_inches=0)
     plt.close(fig)  # 关闭当前图像，避免显示
+    # 保存单独的注意力图
+    plt.figure()
+    plt.imshow(mask / np.max(mask), cmap='rainbow')
+    plt.axis('off')
+    plt.savefig(os.path.join(save_path, f'{postfix}_mask_index{grid_index}.png'), bbox_inches='tight', pad_inches=0)
+    plt.close()
 
 
 def highlight_grid(image, grid_indexes, grid_size=14):

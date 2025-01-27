@@ -33,7 +33,7 @@ def video_to_frame(video_path: str,
     vidcap.release()
 
 
-def frame_to_video(video_path: str, frame_dir: str, fps=5, log=True):
+def frame_to_video(video_path: str, frame_dir: str, fps=10, log=True):
 
     first_img = True
     writer = imageio.get_writer(video_path, fps=fps)

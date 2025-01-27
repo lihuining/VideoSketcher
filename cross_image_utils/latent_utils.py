@@ -71,7 +71,7 @@ def invert_images(sd_model: AppearanceTransferModel, app_image: Image.Image, str
     torch.save(zs_struct, cfg.latents_path / f"{cfg.struct_image_path.stem}_ddpm_noise.pt")
     return latents_app, latents_struct, zs_app, zs_struct
 
-def invert_videos_and_image(sd_model, app_image, struct_image_list, prompt,style_save_path,struct_save_path,cfg,video_cfg,choice="content"):
+def invert_videos_and_image(sd_model, app_image, struct_image_list, prompt,style_save_path,struct_save_path,cfg,choice="content"):
     '''
     self.check_latent_exists(self.struct_save_path) and self.check_latent_exists(self.style_save_path)
     '''
@@ -92,13 +92,13 @@ def invert_videos_and_image(sd_model, app_image, struct_image_list, prompt,style
             # torch.save(latents_app[idx:idx+1].detach(), latent_path)
             noise_path =  os.path.join(style_save_path, f'noisy_ddpm_{t.item()}.pt')
             torch.save(zs_app[idx:idx+1].detach(), noise_path)
-        latent_path = os.path.join(style_save_path, f'noisy_latents_{idx_to_t[cfg.skip_steps]}.pt')
-        torch.save(latents_app[cfg.skip_steps].unsqueeze(0),latent_path) # cfg.skip_steps
-        style_latents,style_noises = latents_app[cfg.skip_steps].unsqueeze(0),zs_app[cfg.skip_steps:].unsqueeze(0) # [1,4,64,64] [1,68,4,64,64]
+        latent_path = os.path.join(style_save_path, f'noisy_latents_{idx_to_t[cfg.inversion.skip_steps]}.pt')
+        torch.save(latents_app[cfg.inversion.skip_steps].unsqueeze(0),latent_path) # cfg.inversion.skip_steps
+        style_latents,style_noises = latents_app[cfg.inversion.skip_steps].unsqueeze(0),zs_app[cfg.inversion.skip_steps:].unsqueeze(0) # [1,4,64,64] [1,68,4,64,64]
         return style_latents, style_noises
 
     if choice == "content":
-        n_frames = video_cfg.inversion.n_frames
+        n_frames = cfg.inversion.n_frames
         zs_struct_list = []
         latents_struct_list = []
         for struct_image in struct_image_list[:n_frames]:
@@ -118,9 +118,9 @@ def invert_videos_and_image(sd_model, app_image, struct_image_list, prompt,style
             # torch.save(latents_struct_frames[:,idx].detach(), latent_path)
             noise_path =  os.path.join(struct_save_path, f'noisy_ddpm_{t.item()}.pt')
             torch.save(zs_structs_frames[:,idx].detach(), noise_path)
-        latent_path = os.path.join(struct_save_path, f'noisy_latents_{idx_to_t[cfg.skip_steps]}.pt')
-        torch.save(latents_struct_frames[:,cfg.skip_steps],latent_path) # cfg.skip_steps
-        content_latents, content_noises = latents_struct_frames[:,cfg.skip_steps],zs_structs_frames[:,cfg.skip_steps:]
+        latent_path = os.path.join(struct_save_path, f'noisy_latents_{idx_to_t[cfg.inversion.skip_steps]}.pt')
+        torch.save(latents_struct_frames[:,cfg.inversion.skip_steps],latent_path) # cfg.inversion.skip_steps
+        content_latents, content_noises = latents_struct_frames[:,cfg.inversion.skip_steps],zs_structs_frames[:,cfg.inversion.skip_steps:]
         return content_latents, content_noises
 def get_init_latents_and_noises(model: AppearanceTransferModel, cfg: RunConfig) -> Tuple[torch.Tensor, torch.Tensor]:
     # If we stored all the latents along the diffusion process, select the desired one based on the skip_steps

@@ -55,8 +55,8 @@ def compute_sketch_matching_loss(image1,image2,sparse_matching_lines, sparse_mat
             # 将采样点坐标转化为整数索引，便于在图像中查找像素值
             # line1_points = line1_points.to(torch.int)
             # line2_points = line2_points.to(torch.int)
-            line1_points = torch.floor(line1_points).to(torch.int)
-            line2_points = torch.floor(line2_points).to(torch.int)
+            line1_points = line1_points.to(torch.int)
+            line2_points = line2_points.to(torch.int)
 
             # 确保采样点在图像范围内
             line1_points = line1_points[(line1_points[:, 0] >= 0) & (line1_points[:, 0] < image1.shape[2]) &

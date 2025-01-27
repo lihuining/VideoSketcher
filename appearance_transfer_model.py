@@ -57,11 +57,11 @@ class AppearanceTransferModel:
         def callback(st: int, timestep: int, latents: torch.FloatTensor) -> Callable:
             self.step = st
             # Compute the masks using prompt mixing self-segmentation and use the masks for AdaIN operation
-            if self.config.use_masked_adain and self.step == self.config.adain_range.start:
+            if self.config.use_masked_adain and self.step == self.config.adain_range[0]:
                 masks = self.segmentor.get_object_masks()
                 self.set_masks(masks)
             # Apply AdaIN operation using the computed masks
-            if self.config.adain_range.start <= self.step < self.config.adain_range.end:
+            if self.config.adain_range[0] <= self.step < self.config.adain_range[1]:
                 if self.config.use_masked_adain:
                     # latents[0] = masked_adain(latents[0], latents[1], self.image_struct_mask_64, self.image_app_mask_64)
                     latents[0] = masked_adain(latents[0], latents[1], self.image_struct_mask_32, self.image_app_mask_32)
@@ -180,7 +180,7 @@ class AppearanceTransferModel:
                 # attn_weight = model_self.controller(attn_weight) # Todo: ?? controller放置位置？ attn_weight:(3,8,1024,1024) 写的有点问题
                 # TypeError: __call__() missing 2 required positional arguments: 'is_cross' and 'place_in_unet'
                 # Update attention map for segmentation
-                if model_self.config.use_masked_adain and model_self.step == model_self.config.adain_range.start - 1: # model_self.config.adain_range.start：20
+                if model_self.config.use_masked_adain and model_self.step == model_self.config.adain_range[0] - 1: # model_self.config.adain_range[0]：20
                     model_self.segmentor.update_attention(attn_weight, is_cross)
 
                 hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)

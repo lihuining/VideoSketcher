@@ -149,7 +149,7 @@ class CrossImageAttentionStableDiffusionPipeline(StableDiffusionPipeline):
                 noise_pred = noise_no_swap_pred_uncond + guidance_scale * (
                         noise_swap_pred_text - noise_no_swap_pred_uncond)
             else: # 范围为cross_attn_32_range和cross_attn_64_range 并集
-                is_cross_image_step = cross_image_attention_range.start <= i <= cross_image_attention_range.end # (10,90)
+                is_cross_image_step = cross_image_attention_range[0] <= i <= cross_image_attention_range[1] # (10,90)
                 if swap_guidance_scale > 1.0 and is_cross_image_step:
                     swapping_strengths = np.linspace(swap_guidance_scale,
                                                      max(swap_guidance_scale / 2, 1.0),

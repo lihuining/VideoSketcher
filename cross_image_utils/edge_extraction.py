@@ -5,9 +5,6 @@ import os.path
 
 import torch
 import sys
-
-from av.deprecation import method
-from setuptools.sandbox import save_path
 from torch.utils.tensorboard.summary import image
 
 sys.path.append('../')
@@ -194,7 +191,8 @@ def load_edge(path, device, method='teed', save_path=None, thresholds=None):
 
 
 if __name__ == "__main__":
-    image_path = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/surf/imgs_crop_fore/00000.jpg"
+    image_path = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/camel/imgs_crop_fore/00002.jpg"
+    class_name = image_path.split('/')[-3]
     save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/edge_results"
     name = os.path.basename(image_path).split('.')[0]
     method = "teed"
@@ -202,7 +200,7 @@ if __name__ == "__main__":
     # method_list = ["teed","hed","canny"]
     # for method in method_list:
     # for alpha in np.arange(0.1, 1.0, 0.1): # range不支持浮点数
-    save_path = os.path.join(save_dir, f"{name}_{method}_{alpha}.png")
+    save_path = os.path.join(save_dir, f"{class_name}_{name}_{method}_{alpha}.png")
     load_edge(image_path, device="cpu", method=method, thresholds=[alpha], save_path=save_path)
 
     # method = "canny"

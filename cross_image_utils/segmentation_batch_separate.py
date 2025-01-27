@@ -47,10 +47,10 @@ class Segmentor:
                       if pos[:2] == 'NN' and word.upper() not in forbidden_words] # (i,word) 返回符合要求的索引位置和词本身
         # visualization
         self.config = config
-        self.cross_attention_dir = self.config.cross_attention_dir
-        self.self_attention_dir = self.config.self_attention_dir
-        self.cluster_path = self.config.cluster_path
-        self.mask_path = self.config.mask_path
+        # self.cross_attention_dir = self.config.cross_attention_dir
+        # self.self_attention_dir = self.config.self_attention_dir
+        # self.cluster_path = self.config.cluster_path
+        # self.mask_path = self.config.mask_path
     def setdirs(self,dirs):
         self.cross_attention_dir = dirs[0]
         self.self_attention_dir = dirs[1]

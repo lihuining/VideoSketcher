@@ -2,6 +2,8 @@ import gc
 import os
 from omegaconf import OmegaConf
 from cross_image_utils.ddpm_inversion import get_variance
+# from tests.test_cross_attention import batch_size
+
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'
 import time
 import pyrallis
@@ -35,7 +37,7 @@ from cross_image_utils.CSD_Score.model import CSD_CLIP, convert_state_dict
 
 from cross_image_utils.figures_visualization.attention_map_std import *
 from cross_image_utils.CLIP_model import tensor_process, spherical_dist_loss, clip_model
-import shutil
+
 def set_requires_grad(model, value):
     for param in model.parameters():
         param.requires_grad = value
@@ -50,7 +52,8 @@ class AppearanceTransferModel:
         self.up_layers = [] # 18
         
         self.config = config
-
+        self.work_dir = os.path.join(self.config.work_dir,self.config.input_path.split('/')[-2]) # '/media/allenyljiang/8204e606-a28e-48fa-89f4-560d3c00163e/home/allenyljiang/Desktop/CVPR2025/Struct_latents/breakdance-flare'
+        self.config.inversion.save_path = os.path.join(self.work_dir,"latents") # latents save path
         self.frame_ids = get_frame_ids(self.config.generation.frame_range, self.config.generation.frame_ids) # 根据frame_range生成，可以确定加载图片的间隔
         self.sd_version = self.config.sd_version
         self.pipe,self.model_key = get_stable_diffusion_model(self.sd_version) if pipe is None else pipe
@@ -80,14 +83,32 @@ class AppearanceTransferModel:
         # data path for inversion
         self.n_frames = self.config.inversion.n_frames
         self.prompt = self.config.inversion.prompt
-        ### update_path
+        self.struct_data_path = self.config.input_path
+        self.style_data_path = self.config.app_image_path
+        self.struct_save_path = get_latents_dir(self.config.inversion.save_path,self.model_key)
+        self.style_save_path = get_latents_dir(os.path.join(self.config.app_image_save_path,os.path.basename(self.config.app_image_path).split('.')[0]),self.model_key)
+        if self.config.use_edge:
+            struct_name = os.path.basename(self.struct_data_path)
+            self.struct_save_path_edge = get_latents_dir(self.config.inversion.save_path+'_edge', self.model_key)
+
+            self.struct_data_path_edge = self.struct_data_path.replace(struct_name, struct_name + '_edge')
+            os.makedirs(self.struct_data_path_edge,exist_ok=True)
+            os.makedirs(self.struct_save_path_edge,exist_ok=True)
+
         self.update_with_matching = self.config.update_with_matching
+        # generation_save_path
+        # if self.config.whether_use_ablation:
+        #     if self.config.ablation_key:
+        #         self.work_dir = os.path.join(self.work_dir,self.config.ablation_key)
+        self.save_path = os.path.join(self.work_dir,os.path.basename(self.config.app_image_path).split('.')[0]) # 不同style分开存放
+        os.makedirs(self.save_path,exist_ok=True)
+
         # 用于loss计算
         self.prev_latents_x0_list = {} # 保留上一个帧所有时间步预测的x0
         for t in self.timesteps:
             self.prev_latents_x0_list[int(t.item())] = []
         ## 跟新config的outputPath
-        self.update_paths()
+
         # self.segmentor = Segmentor(prompt=config.prompt, object_nouns=[config.object_noun],chunk_size=self.chunk_size)
         self.segmentor = Segmentor(config=self.config,tokenizer=self.pipe.tokenizer)
         self.latents_app, self.latents_struct = None, None
@@ -133,28 +154,7 @@ class AppearanceTransferModel:
         self.clip_model.load_state_dict(state_dict, strict=False)
         self.clip_model = self.clip_model.to(self.device)
 
-    def update_paths(self):
-        '''
-        根据新的input_path，app_image_path更新各种保存路径
-        注意路径的赋值顺序
-        '''
-        self.struct_data_path = self.config.input_path
-        self.style_data_path = self.config.app_image_path
-        self.work_dir = os.path.join(self.config.work_dir,self.config.input_path.rstrip("/").split('/')[-2]) # '/media/allenyljiang/8204e606-a28e-48fa-89f4-560d3c00163e/home/allenyljiang/Desktop/CVPR2025/Struct_latents/breakdance-flare'
-        self.config.inversion.save_path = os.path.join(self.work_dir,"latents") # latents save path
 
-        self.struct_save_path = get_latents_dir(self.config.inversion.save_path,self.model_key)
-        self.style_save_path = get_latents_dir(os.path.join(self.config.app_image_save_path,os.path.basename(self.config.app_image_path).split('.')[0]),self.model_key)
-        if self.config.use_edge:
-            struct_name = os.path.basename(self.struct_data_path)
-            self.struct_save_path_edge = get_latents_dir(self.config.inversion.save_path+'_edge', self.model_key)
-
-            self.struct_data_path_edge = self.struct_data_path.replace(struct_name, struct_name + '_edge')
-            os.makedirs(self.struct_data_path_edge,exist_ok=True)
-            os.makedirs(self.struct_save_path_edge,exist_ok=True)
-
-        self.save_path = os.path.join(self.work_dir,os.path.basename(self.config.app_image_path).split('.')[0]) # 不同style分开存放
-        os.makedirs(self.save_path,exist_ok=True)
     def check_latent_exists(self, save_path):
         # save_timesteps = self.scheduler.timesteps
         for ts in self.timesteps:
@@ -663,6 +663,7 @@ class AppearanceTransferModel:
 
         images = self.pipe(
             chunk_index = chunk_index,
+            # chunk_size = chunk_size,
             prompt=[self.config.inversion.prompt] * 3 *chunk_size, # 'a tea pot pouring tea into a cup.'
             latents=init_latents,
             guidance_scale=self.config.cfg_inversion_style,
@@ -829,8 +830,9 @@ class AppearanceTransferModel:
         attention_std_save_path = os.path.join(self.cur_save_path, 'global_average_attention_plot.png')
         plot_global_average_attention_std(self.attention_output_file, attention_std_save_path)
     def __call__(self,ablate_variable='',ablate_value=''):
-        frames = load_video(self.struct_data_path, self.frame_height, self.frame_width, device=self.device)  # 先读取所有帧
-        gt_frames = len(frames)
+        result_stylized = []
+        result_style = []
+        result_content = []
 
         self.perform_cross_frame = self.config.perform_cross_frame
         self.perform_cross_frame_with_prev = self.config.perform_cross_frame_with_prev
@@ -889,6 +891,9 @@ class AppearanceTransferModel:
         for directory in self.mask_debug_directory:
             os.makedirs(directory,exist_ok=True)
         #### inference_all ####
+        frames = load_video(self.struct_data_path, self.frame_height, self.frame_width, device=self.device)  # 先读取所有帧
+
+        gt_frames = len(frames)
         self.style_init,self.style_noises = self.load_latent(self.style_save_path,choice="style")
         cur_batch_size = 10
         frames_counter = 0
@@ -899,19 +904,12 @@ class AppearanceTransferModel:
             self.n_frames = min(len(frames), self.n_frames)
         else:
             self.n_frames = len(frames)
-        ### check latents ###
-        cur_batch_struct_save_path = os.path.join(self.struct_save_path,f'batch_frames0_10') # 默认都先存到这个文件夹，先不管有几张图
-        os.makedirs(cur_batch_struct_save_path,exist_ok=True)
-        if not self.check_latent_exists(cur_batch_struct_save_path):
-            # latents = self.encode_imgs_batch(frames[:self.n_frames])
-            # wt, zs, wts = self.inversion_forward_process_batch(x0=latents, save_path=cur_batch_struct_save_path, etas=1,
-            #                                        prog_bar=True, prompt=self.config.inversion.prompt,
-            #                                        cfg_scale=self.config.cfg_inversion_style)  # 单帧frame_id = 0
-            self.inversion_and_recon()
         end_batch_remain = self.n_frames % cur_batch_size
+
         cur_index = 0
         chunks_counter = 0
         for i in range(start_batch_index,self.n_frames, cur_batch_size):
+
             cur_batch_struct_save_path = os.path.join(self.struct_save_path,f'batch_frames{i}_{min(i+cur_batch_size,gt_frames)}') # 这个文件夹名称只和保存的时候真实的帧数有关
             self.content_init,self.content_noise = self.load_latent(cur_batch_struct_save_path,choice="content")
             if cur_index == start_batch_index:
@@ -939,6 +937,9 @@ class AppearanceTransferModel:
                 cur_res_style = total[cur_chunk_size:2*cur_chunk_size]
                 cur_res_content = total[2*cur_chunk_size:]
                 pre_len = len(prefix)
+                # result_stylized.extend(cur_res_generated[pre_len:])
+                # result_style.extend(cur_res_style[pre_len:])
+                # result_content.extend(cur_res_content[pre_len:])
 
                 joined_images = np.concatenate(total[::-1], axis=1)
                 Image.fromarray(joined_images).save(os.path.join(intermediate_path, f"out_joined_{chunks_counter}.png"))
@@ -950,21 +951,7 @@ class AppearanceTransferModel:
             cur_index += 1
 
         torch.cuda.empty_cache()
-        ### add for images saving
-        if self.config.generate_type == "image":
-            images_save_dir = os.path.join(self.config.images_save_dir,("use_adaptive_contrast" if self.config.use_adaptive_contrast else f"contrast_strength{self.config.contrast_strength}") + f"_swap_guidance_scale{self.config.swap_guidance_scale}" + f"_gamma{self.config.gamma}")
-            os.makedirs(images_save_dir,exist_ok=True)
-            # 构建目标文件路径
-            target_path = os.path.join(images_save_dir, (self.config.input_path.split('/')[-2] if "imgs_crop_fore" or "ori" in self.config.input_path else self.config.input_path.split('/')[-1])+'_'+self.config.app_image_path.split('/')[-1].split('.')[0] + '.png')
-            # 复制并重命名文件
-            shutil.copy2(os.path.join(intermediate_path, f"out_joined_{chunks_counter-1}.png"), target_path)
-        else:
-            frame_to_video(os.path.join(save_path,'generated.mp4'), save_path)
-            save_video_path = os.path.join(save_path,'generated.mp4')
-            if self.config.save_file_path:
-                with open(self.config.save_file_path,'a') as f:
-                    f.write(f"{save_video_path}\n")
-
+        frame_to_video(os.path.join(save_path,'generated.mp4'), save_path)
         # joined_images = np.concatenate(result_stylized, axis=1)
         # Image.fromarray(joined_images).save(os.path.join(save_path, f"combined.png"))
         attention_std_save_path = os.path.join(self.cur_save_path,'global_average_attention_plot.png')
@@ -973,7 +960,7 @@ class AppearanceTransferModel:
 
         plot_global_average_attention_std(self.attention_output_file,attention_std_save_path)
         plot_mean_std_over_time(self.mean_std_file,latents_std_save_path)
-        if self.config.generate_type != "image" and self.config.use_adaptive_contrast:
+        if self.config.use_adaptive_contrast:
             plot_adaptive_contrast_over_time(self.adaptive_contrast_file,adaptive_contrast_save_path)
 
     def set_latents(self, latents_app: torch.Tensor, latents_struct: torch.Tensor):
@@ -1042,7 +1029,6 @@ class AppearanceTransferModel:
                          attn,
                          hidden_states: torch.Tensor,
                          time_step = 0, # new add
-                         forward_type = 'inversion',  # new add 'inversion' or forward,区分inversion和forward 过程
                          encoder_hidden_states: Optional[torch.Tensor] = None,
                          attention_mask=None,
                          temb=None,
@@ -1226,7 +1212,7 @@ class AppearanceTransferModel:
                         ) # attn_weight:(12,8,1024,1024) pre_attn_map:[6, 8, 4096, 4096]
                         ## visualize
                         idx = len(model_self.up_layers) // 2 - 2  # 倒数第二层
-                        if forward_type == 'forward' and model_self.enable_edit and model_self.chunk_index == 0 and self.place_in_unet == model_self.up_layers[2 * idx] and \
+                        if model_self.enable_edit and model_self.chunk_index == 0 and self.place_in_unet == model_self.up_layers[2 * idx] and \
                                 model_self.t_to_idx[time_step] % 5 == 0 and perform_swap:
                             query_save_dir = os.path.join(model_self.cur_save_path, "pca_vis")
                             os.makedirs(query_save_dir, exist_ok=True)
@@ -1236,7 +1222,7 @@ class AppearanceTransferModel:
                                                             self.place_in_unet, suffix="q_s")
                             visualize_and_save_mean_features_pca(query[2 * chunk_size:,], int(model_self.step), query_save_dir,
                                                             self.place_in_unet, suffix="q_c")
-                        if forward_type == 'forward' and model_self.enable_edit and not is_cross and chunk_size > 1 and perform_swap: # Todo: inversion forward 和 backward不一样
+                        if model_self.enable_edit and not is_cross and chunk_size > 1 and perform_swap: # Todo: inversion forward 和 backward不一样
                             map_dict = {0: 'stylized', 1: 'style', 2: 'struct'}
                             # if time_step == 1: # only last timestep
                             #     attn_map_mean = torch.mean(attn_weight, dim=1) # (1024,1024)
@@ -1291,7 +1277,7 @@ class AppearanceTransferModel:
                                     f.write(adaptive_contrast_str)
                             #print("model_self.config.contrast_strength",model_self.config.contrast_strength)
                 res = int(attn_weight.shape[2] ** 0.5)
-                if model_self.config.vis_intermediate and model_self.enable_edit and model_self.chunk_index == 0 and not is_cross and model_self.struct_image and res == 64 and time_step == 1: # 经过cross frame attention之后大小会发生变化
+                if model_self.enable_edit and model_self.chunk_index == 0 and not is_cross and model_self.struct_image and res == 64 and time_step == 1: # 经过cross frame attention之后大小会发生变化
                     image = Image.fromarray(model_self.struct_image[model_self.frame_ids_cur_chunk[0].item()])
                     single_query_dir = os.path.join(model_self.cur_save_path,"single_query_vis")
                     os.makedirs(single_query_dir,exist_ok=True)
@@ -1384,30 +1370,9 @@ if __name__ == "__main__":
     seed_everything(config.seed)
     style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
     generator = AppearanceTransferModel(config)
-
-    input_path_txt = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/struct/struct_image_list.txt"
-    app_image_path_txt = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/style/style_image_list.txt"
-
-
-    # # 从文件中读取每一行并保存到列表
-    # with open(input_path_txt, "r") as file:
-    #     input_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    #
-    #
-    # with open(app_image_path_txt, "r") as file:
-    #     app_image_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    #
-    # for input_path in input_path_list:
-    #     for app_image_path in app_image_path_list:
-    #         generator.config.input_path = input_path
-    #         generator.config.app_image_path = app_image_path
-    #         generator.update_paths()
-    #         generator()
-
-
-    generator()
+    # generator()
     # generator.debug()
-    # generator.inversion_and_recon()
+    generator.inversion_and_recon()
 
     # debug(self, ablate_variable='', ablate_value='')
     # generator(ablate_variable=config.ablation_key,ablate_value=config.ablation_value)
@@ -1426,30 +1391,23 @@ if __name__ == "__main__":
     #     print("total cost time",end_time - start_time)
 
     # generator = AppearanceTransferModel(config)
+    # for start in range(20,70,10):
+    #     config.cross_attn_64_range = [int(start),90]
+    #     config.cross_attn_32_range = [int(start), 70]
+    #     generator.config.cross_attn_64_range = config.cross_attn_64_range ### 注意必须要修改掉generator当中的值，单独改config没有作用
+    #     generator.config.cross_attn_32_range = config.cross_attn_32_range
+    #     generator(ablate_variable='style_injection_time',ablate_value=start)
+    # for start in range(1,8,2):
+    #     config.swap_guidance_scale = start
+    #     generator.config.swap_guidance_scale = config.swap_guidance_scale ### 注意必须要修改掉generator当中的值，单独改config没有作用
+    #     generator(ablate_variable='swap_guidance_scale',ablate_value=start)
     # ablate的参数
-    # for gamma in [round(i * 0.2, 2) for i in range(1,4)]:
-    # for swap_guidance_scale in [5.5,7.5]:
-        # print("cur gamma", gamma)
-    # 以/划分,因此最后不能加/
-    input_path_list = [
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/lucia/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/libby/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/kid-football/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/horsejump-low/imgs_crop_fore"]
-    app_image_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0026.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0055.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0060.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0059.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0056.jpg"
-                           ]
-    # for input_path in input_path_list:
-    #     for app_image_path in app_image_path_list:
-    #         generator.config.input_path = input_path
-    #         generator.config.app_image_path = app_image_path
-    #         #generator.config.swap_guidance_scale = swap_guidance_scale ### 注意必须要修改掉generator当中的值，单独改config没有作用
-    #         generator.update_paths()
-    #         generator()
-
+    # #for end in range(0,0.75,0.1):
+    # for contrast_strength in [1.67,3,5]:
+    #     config.contrast_strength = float(contrast_strength)
+    #     print("cur contrast_strength",contrast_strength)
+    #     generator.config.contrast_strength = config.contrast_strength ### 注意必须要修改掉generator当中的值，单独改config没有作用
+    #     generator(ablate_variable='contrast_strength',ablate_value=contrast_strength)
 
     # config.gamma = 0.75
     # for image_name in os.listdir(style_image_dir):
@@ -1465,8 +1423,5 @@ if __name__ == "__main__":
     #     print("total cost time",end_time - start_time)
 
 '''
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/single_image_test.yaml
-
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/rebuttal_configs/ablations/rebuttal_ablation_studies_add_graph_matching_debug.yaml
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/rebuttal_configs/dance_video.yaml
+--config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/dog.yaml
 '''

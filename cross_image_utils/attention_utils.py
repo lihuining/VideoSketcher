@@ -58,10 +58,10 @@ def show_cluster_image(save_dir,cluster,post_fix,segments = 5):
 def should_mix_keys_and_values(model, hidden_states: torch.Tensor) -> bool:
     """ Verify whether we should perform the mixing in the current timestep.  """
     is_in_32_timestep_range = (
-            model.config.cross_attn_32_range.start <= model.step < model.config.cross_attn_32_range.end
+            model.config.cross_attn_32_range[0] <= model.step < model.config.cross_attn_32_range[1]
     ) # (10,70)
     is_in_64_timestep_range = (
-            model.config.cross_attn_64_range.start <= model.step < model.config.cross_attn_64_range.end
+            model.config.cross_attn_64_range[0] <= model.step < model.config.cross_attn_64_range[1]
     ) # (10,90)
     is_hidden_states_32_square = (hidden_states.shape[1] == 32 ** 2)
     is_hidden_states_64_square = (hidden_states.shape[1] == 64 ** 2)
@@ -70,7 +70,32 @@ def should_mix_keys_and_values(model, hidden_states: torch.Tensor) -> bool:
     return should_mix
 
 
-def compute_scaled_dot_product_attention(Q, K, V,chunk_size,edit_map=False, is_cross=False, contrast_strength=1.0):
+import torch
+
+def sparse_attention_map(attention_map, top_k=1):
+    """
+    对 attention map 进行稀疏化处理，保留每个 query 响应最大的区域。
+
+    Parameters:
+    - attention_map: Tensor of shape (B, N, S, S) -> (batch_size, num_heads, num_keys, num_keys)
+    - top_k: 每个 query 保留的最大响应值的数量。默认值为 1，表示只保留最大响应区域。
+
+    Returns:
+    - sparse_attention_map: 稀疏化后的 attention map，大小为 (B, N, S, S)，只保留最大响应区域。
+    """
+    # 获取最大响应值及其索引
+    max_values, max_indices = torch.topk(attention_map, top_k, dim=-1, largest=True, sorted=False)
+
+    # 创建一个新的稀疏 attention map，初始化为全0
+    sparse_attention_map = torch.zeros_like(attention_map)
+
+    # 将最大响应的区域设置为对应值
+    sparse_attention_map.scatter_(-1, max_indices, max_values)
+
+    return sparse_attention_map
+
+
+def compute_scaled_dot_product_attention(Q, K, V,chunk_size,edit_map=False, is_cross=False, contrast_strength=1.0,use_sparse_attention=False):
     """ Compute the scale dot product attention, potentially with our contrasting operation. """
     torch.cuda.empty_cache() # attn_weight:(12,8,1024,1024)
 
@@ -89,11 +114,13 @@ def compute_scaled_dot_product_attention(Q, K, V,chunk_size,edit_map=False, is_c
                        min=0.0, max=1.0)
             for head_idx in range(attn_weight.shape[1])
         ],dim=1) # attn_weight:(3,1024,1024)->(3,8,1024,1024)
+    if edit_map and not is_cross and use_sparse_attention:
+        attn_weight[:chunk_size,] = sparse_attention_map(attention_map=attn_weight[:chunk_size,]) # (6,5,4096,4096)
     return attn_weight @ V, attn_weight,pre_attn_map # V:torch.Size([3, 8, 1024, 80])
 
 
 def enhance_tensor(tensor: torch.Tensor, contrast_factor: float = 1.67) -> torch.Tensor:
-    """ Compute the attention map contrasting. """
+    """ Compute the attention map contrasting. """ # (3,1024,1024)
     # adjusted_tensor = (tensor - tensor.mean(dim=-1)) * contrast_factor + tensor.mean(dim=-1)
     adjusted_tensor = (tensor - tensor.mean(dim=-1,keepdim=True)) * contrast_factor + tensor.mean(dim=-1,keepdim=True)
     return adjusted_tensor

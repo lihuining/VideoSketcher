@@ -197,31 +197,53 @@ def save_video(frames: torch.Tensor, path, frame_ids=None, save_frame=False):
 #     elif len(frames.shape) == 4 and frames.shape[0] == 1:
 #         T.ToPILImage()(frames[0]).save(
 #             os.path.join(path, '{:04}.{}'.format(0, ext)))
-def save_frames(frames, path, ext="png", frame_ids=None):
+# def save_frames(frames, path, ext="png", frame_ids=None):
+#     os.makedirs(path, exist_ok=True)
+#
+#     # Handle the case where frames are a list of PIL images
+#     if isinstance(frames, list) and all(isinstance(frame, Image.Image) for frame in frames):
+#         if frame_ids is None:
+#             frame_ids = [i for i in range(len(frames))]
+#         for i, frame in zip(frame_ids, frames):
+#             frame.save(os.path.join(path, '{:04}.{}'.format(i, ext)))
+#
+#     # Handle the case where frames are a tensor
+#     elif isinstance(frames, torch.Tensor):
+#         if frame_ids is None:
+#             frame_ids = [i for i in range(len(frames))]
+#         if len(frames.shape) == 4 and frames.shape[0] > 1:
+#             for i, frame in zip(frame_ids, frames):
+#                 T.ToPILImage()(frame).save(
+#                     os.path.join(path, '{:04}.{}'.format(i, ext)))
+#         elif len(frames.shape) == 4 and frames.shape[0] == 1:
+#             T.ToPILImage()(frames[0]).save(
+#                 os.path.join(path, '{:04}.{}'.format(0, ext)))
+#     else:
+#         raise ValueError("Frames must be either a tensor or a list of PIL images.")
+
+def save_frames(frames, path, ext="png", frame_ids=None, start_index=0):
     os.makedirs(path, exist_ok=True)
 
     # Handle the case where frames are a list of PIL images
     if isinstance(frames, list) and all(isinstance(frame, Image.Image) for frame in frames):
         if frame_ids is None:
-            frame_ids = [i for i in range(len(frames))]
+            frame_ids = [i + start_index for i in range(len(frames))]
         for i, frame in zip(frame_ids, frames):
             frame.save(os.path.join(path, '{:04}.{}'.format(i, ext)))
 
     # Handle the case where frames are a tensor
     elif isinstance(frames, torch.Tensor):
         if frame_ids is None:
-            frame_ids = [i for i in range(len(frames))]
+            frame_ids = [i + start_index for i in range(len(frames))]
         if len(frames.shape) == 4 and frames.shape[0] > 1:
             for i, frame in zip(frame_ids, frames):
                 T.ToPILImage()(frame).save(
                     os.path.join(path, '{:04}.{}'.format(i, ext)))
         elif len(frames.shape) == 4 and frames.shape[0] == 1:
             T.ToPILImage()(frames[0]).save(
-                os.path.join(path, '{:04}.{}'.format(0, ext)))
+                os.path.join(path, '{:04}.{}'.format(start_index, ext)))
     else:
         raise ValueError("Frames must be either a tensor or a list of PIL images.")
-
-
 
 def load_latent(latent_path, t, frame_ids=None):
     latent_fname = f'noisy_latents_{t}.pt'

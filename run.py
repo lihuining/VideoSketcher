@@ -46,8 +46,8 @@ def run_appearance_transfer(model: AppearanceTransferModel, cfg: RunConfig) -> L
     model.pipe.scheduler.set_timesteps(cfg.num_timesteps)
     model.enable_edit = True  # Activate our cross-image attention layers
     model.perform_cross_frame = True
-    start_step = min(cfg.cross_attn_32_range.start, cfg.cross_attn_64_range.start) # 10
-    end_step = max(cfg.cross_attn_32_range.end, cfg.cross_attn_64_range.end) # 90
+    start_step = min(cfg.cross_attn_32_range[0], cfg.cross_attn_64_range[0]) # 10
+    end_step = max(cfg.cross_attn_32_range[1], cfg.cross_attn_64_range[1]) # 90
     images = model.pipe(
         # chunk_size = 1,
         prompt=[cfg.prompt] * 3,

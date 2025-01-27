@@ -6,7 +6,7 @@ from diffusers import UNet2DConditionModel
 from diffusers.models.unet_2d_condition import UNet2DConditionOutput
 from diffusers.utils import logging
 from torch.fft import fftn, ifftn, fftshift, ifftshift
-
+from cross_image_utils.attention_visualization import visualize_and_save_features_pca,visualize_unet_features_pca
 """
 This is a small extension of the standard UNet2DConditionModel with the small addition of the 
 Free-U trick (https://github.com/ChenyangSi/FreeU).
@@ -264,7 +264,7 @@ class FreeUUNet2DConditionModel(UNet2DConditionModel):
         is_adapter = mid_block_additional_residual is None and down_block_additional_residuals is not None
 
         down_block_res_samples = (sample,)
-        for downsample_block in self.down_blocks:
+        for downsample_block in self.down_blocks: # 4
             if hasattr(downsample_block, "has_cross_attention") and downsample_block.has_cross_attention:
                 # For t2i-adapter CrossAttnDownBlock2D
                 additional_residuals = {}
@@ -314,7 +314,8 @@ class FreeUUNet2DConditionModel(UNet2DConditionModel):
             sample = sample + mid_block_additional_residual
 
         # 5. up
-        for i, upsample_block in enumerate(self.up_blocks):
+        up_length = len(self.up_blocks)
+        for i, upsample_block in enumerate(self.up_blocks): # 4
             is_final_block = i == len(self.up_blocks) - 1
 
             res_samples = down_block_res_samples[-len(upsample_block.resnets):]
@@ -353,6 +354,15 @@ class FreeUUNet2DConditionModel(UNet2DConditionModel):
                     res_hidden_states_tuple=res_samples,
                     upsample_size=upsample_size
                 )
+            #print("up layer",i,"shape",sample.shape) # [6,1280,16,16] ->[6, 1280, 32, 32] -> [6, 640, 64, 64]-> [6, 320, 64, 64]
+            # if i == up_length - 1:
+            save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/UNet_feature"
+            total_length = len(sample)
+            chunk_size = total_length // 3
+            #visualize_and_save_features_pca(sample[0], timestep, save_dir, 'up_last2', n_components=3, suffix="stylized")
+            # visualize_unet_features_pca(sample[0], timestep, save_dir, f'up_{i}', n_components=3, suffix="stylized")
+            # visualize_unet_features_pca(sample[chunk_size], timestep, save_dir, f'up_{i}', n_components=3, suffix="style")
+            # visualize_unet_features_pca(sample[2*chunk_size], timestep, save_dir, f'up_{i}', n_components=3, suffix="struct")
 
         # 6. post-process
         if self.conv_norm_out:
