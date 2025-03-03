@@ -8,7 +8,6 @@ import pyrallis
 from utils import load_video, prepare_depth, save_frames, control_preprocess
 import torch.nn.functional as F
 from config import RunConfig, Range
-from config import RunConfig
 from constants import OUT_INDEX, STRUCT_INDEX, STYLE_INDEX
 from models.stable_diffusion import CrossImageAttentionStableDiffusionPipeline
 from cross_image_utils import attention_utils
@@ -285,55 +284,6 @@ class AppearanceTransferModel:
         self.style_init,self.style_noises = self.load_latent(self.style_save_path,choice="style")
         self.content_init,self.content_noise = self.load_latent(self.struct_save_path,choice="content")
 
-
-
-    # def load_single_image_init(self):
-    #     print("Loading existing latents...")
-    #     self.config.app_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
-    #     self.config.struct_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
-    #     latents_app, latents_struct = load_latents(self.config.app_latent_save_path, self.config.struct_latent_save_path)
-    #     noise_app, noise_struct = load_noise(self.config.app_latent_save_path, self.config.struct_latent_save_path)
-    #     self.set_latents(latents_app, latents_struct)
-    #     self.set_noise(noise_app, noise_struct)
-    #     # init_latents, init_zs = latent_utils.get_init_latents_and_noises(model=model, cfg=cfg)
-    #     if self.latents_struct.dim() == 4 and self.latents_app.dim() == 4 and self.latents_app.shape[0] > 1:
-    #         self.latents_struct = self.latents_struct[self.config.skip_steps] # torch.equal(self.content_init[0],self.latents_struct)
-    #         self.latents_app = self.latents_app[self.config.skip_steps] # torch.equal(self.latents_app.unsqueeze(0),self.style_init)
-    #     self.init_latents = torch.stack(
-    #         [self.latents_struct, self.latents_app, self.latents_struct])  # torch.Size([3, 4, 64, 64])
-    #     self.init_zs = [self.zs_struct[self.config.skip_steps:].unsqueeze(0),
-    #                     self.zs_app[self.config.skip_steps:].unsqueeze(0),
-    #                     self.zs_struct[self.config.skip_steps:].unsqueeze(0)]  # list:3,torch.Size([1,68, 4, 64, 64])
-    #     chunk_size = 2
-    #     # .repeat(chunk_size, 1, 1, 1, 1)
-    #     self.init_latents = torch.cat(
-    #         [self.latents_struct.repeat(chunk_size, 1, 1, 1), self.latents_app.repeat(chunk_size, 1, 1, 1), self.latents_struct.repeat(chunk_size, 1, 1, 1)],dim=0)  # torch.Size([3, 4, 64, 64])
-    #     self.init_zs = [self.zs_struct[self.config.skip_steps:].unsqueeze(0).repeat(chunk_size, 1, 1, 1, 1),
-    #                     self.zs_app[self.config.skip_steps:].unsqueeze(0).repeat(chunk_size, 1, 1, 1, 1),
-    #                     self.zs_struct[self.config.skip_steps:].unsqueeze(0).repeat(chunk_size, 1, 1, 1, 1)]  # list:3,torch.Size([1,68, 4, 64, 64])
-    #     # self.style_init, self.style_noises, self.content_init, self.content_noise
-    #     self.chunk_size = chunk_size
-    #     start_step = min(self.config.cross_attn_32_range[0], self.config.cross_attn_64_range[0])  # 10
-    #     end_step = max(self.config.cross_attn_32_range[1], self.config.cross_attn_64_range[1])  # 90
-    #     images = self.pipe(
-    #         # chunk_size = chunk_size,
-    #         prompt=[self.config.inversion.prompt] * 3 *chunk_size,
-    #         latents=self.init_latents,
-    #         guidance_scale=self.config.cfg_inversion_style,  # 1.0 --> 0.0
-    #         num_inference_steps=self.config.num_timesteps,
-    #         swap_guidance_scale=self.config.swap_guidance_scale,
-    #         callback=self.get_adain_callback(),
-    #         eta=1,
-    #         generator=torch.Generator('cuda').manual_seed(self.config.seed),
-    #         cross_image_attention_range=Range(start=start_step, end=end_step),
-    #         zs=self.init_zs,
-    #         prev_latents_x0_list=self.prev_latents_x0_list,
-    #         latent_update = self.latent_update,
-    #     ).images  # 注意这里guidance_scale = 1
-    #
-    #     joined_images = np.concatenate(images[::-1], axis=1)
-    #     Image.fromarray(joined_images).save(os.path.join(self.work_dir, f"out_joined_single_{chunk_size}_copy.png"))
-    #
     def perform_ddpm_step(self, z, latents, t, noise_pred, eta):
         '''
         论文：DDIM
@@ -679,7 +629,7 @@ class AppearanceTransferModel:
             clip_model = self.clip_model,
             struct_gt = self.struct_tensor_image[frame_ids],
             enable_edit = self.enable_edit,
-            std_file = self.mean_std_file,
+            std_file = self.mean_std_file
             # perform_cross_frame=self.config.perform_cross_frame,
         ).images  # 注意这里guidance_scale = 1
         # joined_images = np.concatenate(images[::-1], axis=1)
@@ -723,10 +673,6 @@ class AppearanceTransferModel:
                                                                cfg_scale=self.config.cfg_inversion_style)  # 单帧frame_id = 0
             self.content_init, self.content_noise = self.load_latent(cur_batch_struct_save_path, choice="content")
             # # (5,4,64,64) (5,68,4,64,64)
-            # latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=wts[:, self.skip_steps], etas=1,
-            #                                                                 prompts=[self.config.inversion.prompt], cfg_scales=[self.config.cfg_inversion_style],
-            #                                                                 prog_bar=True,
-            #                                                                 zs=zs[:, self.skip_steps:])
             ## load data
             latent_reconstruction, _ = self.inversion_reverse_process_batch(xT=self.content_init, etas=1,
                                                                             prompts=[self.config.inversion.prompt], cfg_scales=[self.config.cfg_inversion_style],
@@ -829,13 +775,19 @@ class AppearanceTransferModel:
         attention_std_save_path = os.path.join(self.cur_save_path, 'global_average_attention_plot.png')
         plot_global_average_attention_std(self.attention_output_file, attention_std_save_path)
     def __call__(self,ablate_variable='',ablate_value=''):
+        # try:
+        if self.config.generate_type == "image":
+            images_save_dir = os.path.join(self.config.images_save_dir,("use_adaptive_contrast" if self.config.use_adaptive_contrast else f"contrast_strength{self.config.contrast_strength}") + f"_swap_guidance_scale{self.config.swap_guidance_scale}" + f"_gamma{self.config.gamma}")
+            target_path = os.path.join(images_save_dir, (self.config.input_path.split('/')[-2] if "imgs_crop_fore" or "ori" in self.config.input_path else self.config.input_path.split('/')[-1])+'_'+self.config.app_image_path.split('/')[-1].split('.')[0] + '.png')
+            if os.path.isfile(target_path):
+                return
         frames = load_video(self.struct_data_path, self.frame_height, self.frame_width, device=self.device)  # 先读取所有帧
-        gt_frames = len(frames)
+        gt_frames = min(len(frames),self.config.inversion.n_frames)
 
         self.perform_cross_frame = self.config.perform_cross_frame
         self.perform_cross_frame_with_prev = self.config.perform_cross_frame_with_prev
         post = f'{self.sd_version}_chunk_size{self.chunk_size}'+ ('_cross_frame' if self.perform_cross_frame else '') + ('_prev_frame' if self.perform_cross_frame_with_prev else '')+('_masked_adain' if self.config.use_masked_adain else '') +('_adain' if self.config.use_adain else '') + ('_latent_update' if self.latent_update else '') + \
-               ((f'matching_guidance_{self.config.update_with_matching_guidance}'+f'start_time{self.config.update_with_matching_start_time}'+ f'end_time{self.config.update_with_matching_end_time}') if self.config.update_with_matching else '')
+            ((f'matching_guidance_{self.config.update_with_matching_guidance}'+f'start_time{self.config.update_with_matching_start_time}'+ f'end_time{self.config.update_with_matching_end_time}') if self.config.update_with_matching else '')
         if ablate_variable:
             # self.register_attention_control() # 需要再次调用才能生效
             self.cur_save_path = os.path.join(self.save_path,str(ablate_variable)) # self.save_path每次不能改变
@@ -873,14 +825,16 @@ class AppearanceTransferModel:
         ### 初始化style_init ###
         self.app_image, self.struct_image = image_utils.load_video_images(self.style_data_path, self.struct_data_path,self.struct_data_path)
         if not self.check_latent_exists(self.style_save_path):
+            
             self.style_init, self.style_noises = invert_videos_and_image(sd_model=self.pipe,
-                                                                         app_image=self.app_image,
-                                                                         struct_image_list=self.struct_image,
-                                                                         prompt=self.prompt,
-                                                                         style_save_path=self.style_save_path,
-                                                                         struct_save_path=self.struct_save_path,
-                                                                         cfg=self.config,
-                                                                         choice="style")
+                                                                            app_image=self.app_image,
+                                                                            struct_image_list=self.struct_image,
+                                                                            prompt=self.prompt,
+                                                                            style_save_path=self.style_save_path,
+                                                                            struct_save_path=self.struct_save_path,
+                                                                            cfg=self.config,
+                                                                            choice="style")
+
         self.enable_edit = self.config.enable_edit
         self.struct_tensor_image = torch.cat([tensor_process(image) for image in self.struct_image],dim=0)
         ### debug
@@ -900,9 +854,9 @@ class AppearanceTransferModel:
         else:
             self.n_frames = len(frames)
         ### check latents ###
-        cur_batch_struct_save_path = os.path.join(self.struct_save_path,f'batch_frames0_10') # 默认都先存到这个文件夹，先不管有几张图
+        cur_batch_struct_save_path = os.path.join(self.struct_save_path,f'batch_frames0_10') if self.config.generate_type == "video" else os.path.join(self.struct_save_path,f'batch_frames0_1')# 默认都先存到这个文件夹，先不管有几张图
         os.makedirs(cur_batch_struct_save_path,exist_ok=True)
-        if not self.check_latent_exists(cur_batch_struct_save_path):
+        if (not self.check_latent_exists(cur_batch_struct_save_path)) or self.config.inversion.n_frames > 10:
             # latents = self.encode_imgs_batch(frames[:self.n_frames])
             # wt, zs, wts = self.inversion_forward_process_batch(x0=latents, save_path=cur_batch_struct_save_path, etas=1,
             #                                        prog_bar=True, prompt=self.config.inversion.prompt,
@@ -964,9 +918,6 @@ class AppearanceTransferModel:
             if self.config.save_file_path:
                 with open(self.config.save_file_path,'a') as f:
                     f.write(f"{save_video_path}\n")
-
-        # joined_images = np.concatenate(result_stylized, axis=1)
-        # Image.fromarray(joined_images).save(os.path.join(save_path, f"combined.png"))
         attention_std_save_path = os.path.join(self.cur_save_path,'global_average_attention_plot.png')
         latents_std_save_path = os.path.join(self.cur_save_path,'latents_mean_std.png')
         adaptive_contrast_save_path = os.path.join(self.cur_save_path,'adaptive_contrast.png')
@@ -975,6 +926,8 @@ class AppearanceTransferModel:
         plot_mean_std_over_time(self.mean_std_file,latents_std_save_path)
         if self.config.generate_type != "image" and self.config.use_adaptive_contrast:
             plot_adaptive_contrast_over_time(self.adaptive_contrast_file,adaptive_contrast_save_path)
+        # except RuntimeError as e:
+        #         print(f"Error: {e}")
 
     def set_latents(self, latents_app: torch.Tensor, latents_struct: torch.Tensor):
         self.latents_app = latents_app
@@ -1098,9 +1051,6 @@ class AppearanceTransferModel:
 
                 # Potentially apply our cross image attention operation
                 # To do so, we need to be in a self-attention layer in the decoder part of the denoising network
-                
-                vis_flag = False
-
                 # print(f"perform_swap: {perform_swap}, is_cross: {is_cross}")
                 # print("Key shape before rearrange:", key.shape)
                 if perform_swap and not is_cross and "up" in self.place_in_unet and model_self.enable_edit: # decoder的自注意力层才进行这些操作
@@ -1122,14 +1072,13 @@ class AppearanceTransferModel:
                         # add query_preserve
                         if self.query_preserve and model_self.step < model_self.config.gamma_end:
                             # print(model_self.config.gamma)
-                            vis_flag = True
                             query[OUT_INDEX] = query[STRUCT_INDEX]*model_self.config.gamma + query[OUT_INDEX]*(1-model_self.config.gamma)
                             # query[OUT_INDEX] = query[OUT_INDEX]*model_self.config.temperature
                         key = rearrange(key, "b f d c -> (b f) d c")
                         value = rearrange(value, "b f d c -> (b f) d c")
                         query = rearrange(query, "b f d c -> (b f) d c")
 
-                if not is_cross and "up" in self.place_in_unet and model_self.enable_edit and not should_mix and query.shape[2] < 1281: # edit开关打开并且未进行query交换
+                if perform_swap and (not is_cross) and ("up" in self.place_in_unet) and model_self.enable_edit and not should_mix and query.shape[2] < 1281: # edit开关打开并且未进行query交换
                     # 进行cross_frame_attention
                     if model_self.perform_cross_frame and not is_cross:
                         former_frame_index = [0]*chunk_size
@@ -1375,98 +1324,42 @@ if __name__ == "__main__":
 
     start_time = time.time()
     config = load_config()
-    # pipe, scheduler, model_key = init_model(
-    #     config.device, config.sd_version, config.model_key, config.generation.control, config.float_precision)
-
-    # pipe, model_key = get_stable_diffusion_model()
-    # scheduler = pipe.scheduler
-    # config.model_key = "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
     seed_everything(config.seed)
     style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
     generator = AppearanceTransferModel(config)
+    input_path_txt = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu_davis.txt"
+    app_image_path_txt = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/goat_videosketcher_teaser.txt"
 
-    input_path_txt = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/struct/struct_image_list.txt"
-    app_image_path_txt = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/style/style_image_list.txt"
+    # 从文件中读取每一行并保存到列表
+    # input_path_list = []
+    # with open(input_path_txt, "r") as file:
+    #     for line in file:
+    #         line = line.strip()
+    #         if os.path.isdir(line):
+    #             video_name = os.listdir(line)[0]
+    #             video_path = os.path.join(line, video_name)
+    #             input_path_list.append(video_path)
+    #         else:
+    #             input_path_list.append(line)
 
-
-    # # 从文件中读取每一行并保存到列表
     # with open(input_path_txt, "r") as file:
     #     input_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    #
-    #
-    # with open(app_image_path_txt, "r") as file:
-    #     app_image_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    #
+    input_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/goat/imgs_crop_fore"]
+    with open(app_image_path_txt, "r") as file:
+        app_image_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
+    # app_image_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/4SketchStyle/style1/style1_2.PNG","/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0026.jpg"]
     # for input_path in input_path_list:
     #     for app_image_path in app_image_path_list:
     #         generator.config.input_path = input_path
     #         generator.config.app_image_path = app_image_path
     #         generator.update_paths()
     #         generator()
-
-
     generator()
-    # generator.debug()
-    # generator.inversion_and_recon()
-
-    # debug(self, ablate_variable='', ablate_value='')
-    # generator(ablate_variable=config.ablation_key,ablate_value=config.ablation_value)
-    # generator.inversion_and_recon()
     end_time = time.time()
     print("total cost time", end_time - start_time)
-    # for image_name in os.listdir(style_image_dir):
-    #     style_path = os.path.join(style_image_dir,image_name)
-    #     config.app_image_path = style_path
-    #     generator = AppearanceTransferModel(config,cross_image_config)
-    #     ### 运行结果 ###
-    #     # generator.load_latents_or_invert_videos()
-    #     generator()
-    #     # generator.inversion_and_recon() # 验证inversion和recon的结果是否正确
-    #     end_time = time.time()
-    #     print("total cost time",end_time - start_time)
-
-    # generator = AppearanceTransferModel(config)
-    # ablate的参数
-    # for gamma in [round(i * 0.2, 2) for i in range(1,4)]:
-    # for swap_guidance_scale in [5.5,7.5]:
-        # print("cur gamma", gamma)
-    # 以/划分,因此最后不能加/
-    input_path_list = [
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/lucia/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/libby/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/kid-football/imgs_crop_fore",
-                       "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/horsejump-low/imgs_crop_fore"]
-    app_image_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0026.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0055.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0060.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0059.jpg",
-                           "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/0122_new_sketch/ref0056.jpg"
-                           ]
-    # for input_path in input_path_list:
-    #     for app_image_path in app_image_path_list:
-    #         generator.config.input_path = input_path
-    #         generator.config.app_image_path = app_image_path
-    #         #generator.config.swap_guidance_scale = swap_guidance_scale ### 注意必须要修改掉generator当中的值，单独改config没有作用
-    #         generator.update_paths()
-    #         generator()
 
 
-    # config.gamma = 0.75
-    # for image_name in os.listdir(style_image_dir):
-    #     style_path = os.path.join(style_image_dir,image_name)
-    #     config.app_image_path = style_path
-    #     # generator.config.app_image_path = config.app_image_path
-    #     generator = AppearanceTransferModel(config) # 这个得每次重新加载模型，因为修改path放置在的是init当中
-    #     ### 运行结果 ###
-    #     # generator.load_latents_or_invert_videos()
-    #     generator()
-    #     # generator.inversion_and_recon() # 验证inversion和recon的结果是否正确
-    #     end_time = time.time()
-    #     print("total cost time",end_time - start_time)
 
 '''
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/single_image_test.yaml
-
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/rebuttal_configs/ablations/rebuttal_ablation_studies_add_graph_matching_debug.yaml
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/rebuttal_configs/dance_video.yaml
+python3 video_appearance_transfer_model.py --config /media/allenyljiang/2CD8318DD83155F4/Codes/cross-image-attention/configs/iccv/libby.yaml
 '''

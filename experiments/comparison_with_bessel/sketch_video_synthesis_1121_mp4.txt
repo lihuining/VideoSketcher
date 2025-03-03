@@ -1,0 +1,15 @@
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/gold-fish_foreground_consist_3.0/gold-fish_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/goat_foreground_consist_3.0/goat_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/flamingo_foreground_consist_3.0/flamingo_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/dog_foreground_consist_3.0/dog_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/dance-jump_foreground_consist_3.0/dance-jump_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/cows_foreground_consist_3.0/cows_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/bear_foreground_consist_3.0/bear_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+
+
+
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/car-turn_foreground_consist_3.0/car-turn_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/surf_foreground_consist_3.0/surf_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4
+/media/allenyljiang/564AFA804AFA5BE51/Codes/Sketch_Generation/SketchVideo/CLIPavideo/output_sketches/mallard-water_foreground_consist_3.0/mallard-water_64strokes_seed0/mp4_logs_None_RN101_0.00.01.01.00.0_0.1_1.5/iter1200.mp4

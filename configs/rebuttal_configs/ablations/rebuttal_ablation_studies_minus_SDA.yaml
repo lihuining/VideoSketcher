@@ -1,11 +1,10 @@
 sd_version: "2.1"
 #sd_version: "1.5"
-input_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/flamingo/imgs_crop_fore"
+input_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/mallard-water/imgs_crop_fore"
 #work_dir: "outputs/"
 work_dir: "/media/allenyljiang/2CD8318DD83155F4/CVPR2025/Struct_latents"
 
-app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/4SketchStyle/style1/4.PNG"
-#app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0001.jpg"
+app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref_0049.jpg"
 #app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0030.jpg"
 app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/" # 不需要加名字
 
@@ -23,15 +22,19 @@ perform_cross_frame: False # 设置为True的时候chunk_size至少为2
 perform_cross_frame_with_prev: False # 设置为True的时候chunk_size为1
 #perform_cross_frame: False #
 #perform_cross_frame_with_prev: True
-latent_update: False
+latent_update: True
 start_frame: 0
 update_with_matching: False
 update_with_matching_guidance: 1
 swap_guidance_scale: 3.5
 update_with_matching_start_time: 1
 update_with_matching_end_time: 671
+update_with_clip: False # 使用clip更新latents
+update_with_clip_guidance: 100
+update_with_clip_start_time: 1  # 60
+update_with_clip_end_time: 371
 use_edge: False
-contrast_strength: 1
+contrast_strength: 1.67
 use_adaptive_contrast: True
 inversion:
   save_path: "${work_dir}/latents"
@@ -39,8 +42,8 @@ inversion:
   prompt: "a photo of an object"
   steps: 100 # inversion的时间步
   save_intermediate: True # Save intermediate latents. Required when using PnP.
-  n_frames: 4 #2 #null #2 #50 #11 # 15 # 70
-  force: True # Force run inversion even inverted latents have been found
+  n_frames: 10 #2 #null #2 #50 #11 # 15 # 70
+  force: False # Force run inversion even inverted latents have been found
 
 generation:
   control: "pnp"
@@ -60,12 +63,13 @@ generation:
   local_merge_ratio: 0.9
   global_merge_ratio: 0.8
   global_rand: 0.5
-  
+
+generate_type: "video"
 seed: 123
 device: "cuda"
 base_config: "configs/default.yaml" # Use default values in template.yaml
 
-float_precision: "fp32"
+float_precision: "fp16"
 enable_xformers_memory_efficient_attention: True
 
 ablation_key: "gamma_end"

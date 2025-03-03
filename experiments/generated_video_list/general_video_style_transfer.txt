@@ -1,0 +1,4 @@
+
+/media/allenyljiang/2CD8318DD83155F4/CVPR2025/general_video_style_transfer/Pix2Video/Output/blackswan_index0
+/media/allenyljiang/2CD8318DD83155F4/CVPR2025/general_video_style_transfer/Pix2Video/Output/blackswan_index1
+/media/allenyljiang/2CD8318DD83155F4/CVPR2025/general_video_style_transfer/Pix2Video/Output/blackswan_index2

@@ -1,12 +1,12 @@
+
 sd_version: "2.1"
 #sd_version: "1.5"
-input_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/flamingo/imgs_crop_fore"
+input_path: "/media/allenyljiang/2CD8318DD83155F4/video_in_the_wild/12693267_1080_1920_30fps"
 #work_dir: "outputs/"
 work_dir: "/media/allenyljiang/2CD8318DD83155F4/CVPR2025/Struct_latents"
 
-app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/4SketchStyle/style1/4.PNG"
-#app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0001.jpg"
-#app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0030.jpg"
+#app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref_0049.jpg"
+app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0030.jpg"
 app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/" # 不需要加名字
 
 height: 512
@@ -27,19 +27,19 @@ latent_update: False
 start_frame: 0
 update_with_matching: False
 update_with_matching_guidance: 1
-swap_guidance_scale: 3.5
+swap_guidance_scale: 1.0
 update_with_matching_start_time: 1
 update_with_matching_end_time: 671
 use_edge: False
 contrast_strength: 1
-use_adaptive_contrast: True
+use_adaptive_contrast: False
 inversion:
   save_path: "${work_dir}/latents"
 #  prompt: "a dog walking on the ground near a bush."
   prompt: "a photo of an object"
   steps: 100 # inversion的时间步
   save_intermediate: True # Save intermediate latents. Required when using PnP.
-  n_frames: 4 #2 #null #2 #50 #11 # 15 # 70
+  n_frames: 50 #2 #null #2 #50 #11 # 15 # 70
   force: True # Force run inversion even inverted latents have been found
 
 generation:
