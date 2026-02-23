@@ -1,4 +1,4 @@
-# VideoSketcher: A Training-Free Approach for Coherent Video Sketch Transfer
+# [WACV 2026 Oral] VideoSketcher: A Training-Free Approach for Coherent Video Sketch Transfer
 
 [[Paper]](#) | [[Project Page]](#)
 
