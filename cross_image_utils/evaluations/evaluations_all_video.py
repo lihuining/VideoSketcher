@@ -11,13 +11,13 @@ import inception
 clip_metric = folder_consistency(folder)
 '''
 from video_metric.pixel_mse import calculate_pixle_mse
-#video_list_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/style_results/1109.txt"
+#video_list_path = "Codes/cross-image-attention/experiments/style_results/1109.txt"
 # model loading
 device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
 
 flow_checkpoint = torch.load(
-    '/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/Rerender_A_Video/models/gmflow_sintel-0c07dcb3.pth',
+    'Codes/Video_Editing/Rerender_A_Video/models/gmflow_sintel-0c07dcb3.pth',
     map_location=lambda storage, loc: storage)
 weights = flow_checkpoint['model'] if 'model' in flow_checkpoint else flow_checkpoint
 flow_model = GMFlow(
@@ -33,7 +33,7 @@ flow_model.load_state_dict(weights, strict=False)
 flow_model.eval()
 
 device = torch.device('cuda') if device == 'cuda' and torch.cuda.is_available() else torch.device('cpu')
-art_inception_model_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/pretrained_models/art_fid/art_inception.pth"
+art_inception_model_path = "Codes/cross-image-attention/pretrained_models/art_fid/art_inception.pth"
 ckpt = torch.load(art_inception_model_path, map_location=device)
 
 art_inception_model = inception.Inception3().to(device)
@@ -61,22 +61,22 @@ def count_images_in_folder(folder_path):
 
     return image_count
 # 定义文件路径
-# dict = {"ours":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/style_results/1109.txt",
+# dict = {"ours":"Codes/cross-image-attention/experiments/style_results/1109.txt",
 #         "styleid":"/home/allenyljiang/Desktop/CVPR25/Style_ID/output/styleid_1109.txt",
 #         "cross_image":"/home/allenyljiang/Desktop/CVPR25/Cross_image_attention/cross_image_attention_1109.txt",
 #         "ref2sketch":"/home/allenyljiang/Desktop/CVPR25/ref2sketch/ref2sketch_1109.txt",
 #         "semi_ref2sketch":"/home/allenyljiang/Desktop/CVPR25/semi_ref2sketch/semi_ref2sketch_1109.txt"}
 
-# dict = {"all":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_components.txt",
-#         "minus latent":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_minus_latent_update.txt",
-#         "minus TLA":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_minus_TLA.txt"}
+# dict = {"all":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_components.txt",
+#         "minus latent":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_minus_latent_update.txt",
+#         "minus TLA":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0123_all_minus_TLA.txt"}
 # all ,minus latent,minus TLA,minus SDA,gamma0.4,minus_SDA_and_swap_guidance,gamma0.2
-# dict = {"gamma0.4":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_gamma0.4.txt",
-#         "minus_SDA_and_swap_guidance":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_minus_SDA_add_swap_guidance.txt"}
-#dict = {"gamma0.2":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_gamma0.2.txt",}
-dict = {"graph":"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_add_graph_matching.txt"}
+# dict = {"gamma0.4":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_gamma0.4.txt",
+#         "minus_SDA_and_swap_guidance":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_minus_SDA_add_swap_guidance.txt"}
+#dict = {"gamma0.2":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_gamma0.2.txt",}
+dict = {"graph":"Codes/cross-image-attention/experiments/rebuttal/generated_list/0125_add_graph_matching.txt"}
 frames_end = 50
-results_txt = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/metric_results/all_vs_graph_matching.txt"
+results_txt = "Codes/cross-image-attention/experiments/rebuttal/generated_list/metric_results/all_vs_graph_matching.txt"
 frames = 8 #10
 # with open(results_txt, "w") as f:
 #     f.write("Clip Video,Pixel MSE,FID,LPIPS,ArtFID,CFSD,LPIPS (Gray),NFrames\n")
@@ -85,7 +85,7 @@ for key in dict:
     cur_model= key
     video_list_path = dict[key]
     #video_list_path = "/home/allenyljiang/Desktop/CVPR25/Cross_image_attention/cross_image_attention_1109.txt"
-    json_output_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/metric_results"
+    json_output_dir = "Codes/cross-image-attention/experiments/rebuttal/generated_list/metric_results"
     json_file_path = os.path.join(json_output_dir, f"{cur_model}_metrics.json")
 
     # 确保输出目录存在
@@ -108,11 +108,11 @@ for key in dict:
         metric_file_path = os.path.join(metric_dir, "metric.txt")
         struct_name = line.split('/')[-4].split('_')[0] # for bessel
         #struct_name = line.split('/')[-4]
-        ori_video = f"/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/{struct_name}/imgs_crop_fore"
+        ori_video = f"Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/{struct_name}/imgs_crop_fore"
         # style_name = line.split('/')[-3]
-        # style_path = f"/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/{style_name}.jpg"
+        # style_path = f"Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/{style_name}.jpg"
 
-        style_path = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/best_generated.jpg" # for bessel
+        style_path = "Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/best_generated.jpg" # for bessel
 
         cfsd = compute_cfsd(n_frames, line, ori_video,device="cuda")
         pixel_mse = calculate_pixle_mse(ori_video,line,n_frames,flow_model)

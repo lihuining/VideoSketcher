@@ -281,7 +281,7 @@ class Segmentor:
         return self.mask_style, self.mask_struct
 
 if __name__ == "__main__":
-    os.chdir("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention")
+    os.chdir("Codes/cross-image-attention")
     prompt = "a tea pot pouring tea into a cup."
     object_noun = "tea"
     chunk_size = 1

@@ -2,8 +2,8 @@
 #!/bin/bash
 
 # YAML 文件路径
-yaml_file="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/wild-motor.yaml"
-cd "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention"
+yaml_file="Codes/cross-image-attention/configs/wild-motor.yaml"
+cd "Codes/cross-image-attention"
 
 # 读取 struct_video_list.txt 文件中的所有视频路径
 while IFS= read -r app_image_path; do
@@ -20,6 +20,6 @@ while IFS= read -r app_image_path; do
         # 运行 Python 脚本，使用更新后的配置文件
         python3 video_appearance_transfer_model.py --config ${yaml_file}
     fi
-done < "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/struct/struct_video_final.txt"
+done < "Codes/cross-image-attention/experiments/rebuttal/struct/struct_video_final.txt"
 #将 struct_video_list.txt 文件的内容作为 while 循环的标准输入。
 

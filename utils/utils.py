@@ -22,11 +22,11 @@ def init_model(device="cuda", sd_version="1.5", model_key=None, control_type="no
     use_depth = False
     if model_key is None:
         if sd_version == '2.1':
-            model_key = "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-2-1-base"
+            model_key = "StableDiffusion_Models/stable-diffusion-2-1-base"
         elif sd_version == '2.0':
             model_key = "stabilityai/stable-diffusion-2-base"
         elif sd_version == '1.5':
-            model_key = "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
+            model_key = "StableDiffusion_Models/stable-diffusion-v1-5"
         elif sd_version == 'depth':
             model_key = "stabilityai/stable-diffusion-2-depth"
             use_depth = True

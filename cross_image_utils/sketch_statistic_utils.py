@@ -2,9 +2,9 @@ from PIL import Image
 import numpy as np
 
 # 读取草图并转换为灰度图
-#image = Image.open("/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg").convert("L")
-image = Image.open("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs/breakdance-flare/ref0020/2_cross_frame/generated_result/0000.png").convert("L")
-#image = Image.open("/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0001.jpg").convert("L")
+#image = Image.open("Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg").convert("L")
+image = Image.open("Codes/cross-image-attention/outputs/breakdance-flare/ref0020/2_cross_frame/generated_result/0000.png").convert("L")
+#image = Image.open("Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0001.jpg").convert("L")
 image_array = np.array(image)
 
 # 设置一个阈值（假设小于128的为笔画）

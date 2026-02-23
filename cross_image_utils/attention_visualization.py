@@ -518,8 +518,8 @@ def highlight_grid(image, grid_indexes, grid_size=14):
     return image
 if __name__ == "__main__":
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    ldm_stable = StableDiffusionPipeline.from_pretrained("/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5").to(device)
+    ldm_stable = StableDiffusionPipeline.from_pretrained("StableDiffusion_Models/stable-diffusion-v1-5").to(device)
     tokenizer = ldm_stable.tokenizer
     controller = AttentionStore()
-    show_cross_attention(tokenizer,["an apple"],"/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs_debug/attentions/cross_attn.png",controller, res=16, from_where=("up", "down"))
-    # show_self_attention("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs_debug/attentions/self_attn.png",controller, res=16, from_where=("up", "down"))
+    show_cross_attention(tokenizer,["an apple"],"Codes/cross-image-attention/outputs_debug/attentions/cross_attn.png",controller, res=16, from_where=("up", "down"))
+    # show_self_attention("Codes/cross-image-attention/outputs_debug/attentions/self_attn.png",controller, res=16, from_where=("up", "down"))

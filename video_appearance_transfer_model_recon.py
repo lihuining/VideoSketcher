@@ -146,9 +146,9 @@ class AppearanceTransferModel:
         self.key_injection_layers = set()
         ## add CLIP
         self.clip_model = CSD_CLIP("vit_large", "default",
-                              model_path="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
+                              model_path="Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
         set_requires_grad(self.clip_model, False)
-        model_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
+        model_path = "Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
         checkpoint = torch.load(model_path, map_location="cpu")
         state_dict = convert_state_dict(checkpoint['model_state_dict'])
         self.clip_model.load_state_dict(state_dict, strict=False)
@@ -289,8 +289,8 @@ class AppearanceTransferModel:
 
     # def load_single_image_init(self):
     #     print("Loading existing latents...")
-    #     self.config.app_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
-    #     self.config.struct_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
+    #     self.config.app_latent_save_path = Path("Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
+    #     self.config.struct_latent_save_path = Path("Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
     #     latents_app, latents_struct = load_latents(self.config.app_latent_save_path, self.config.struct_latent_save_path)
     #     noise_app, noise_struct = load_noise(self.config.app_latent_save_path, self.config.struct_latent_save_path)
     #     self.set_latents(latents_app, latents_struct)
@@ -1361,67 +1361,12 @@ if __name__ == "__main__":
 
     start_time = time.time()
     config = load_config()
-    # pipe, scheduler, model_key = init_model(
-    #     config.device, config.sd_version, config.model_key, config.generation.control, config.float_precision)
-
-    # pipe, model_key = get_stable_diffusion_model()
-    # scheduler = pipe.scheduler
-    # config.model_key = "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
     seed_everything(config.seed)
-    style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
     generator = AppearanceTransferModel(config)
-    # generator()
-    # generator.debug()
     generator.inversion_and_recon()
-
-    # debug(self, ablate_variable='', ablate_value='')
-    # generator(ablate_variable=config.ablation_key,ablate_value=config.ablation_value)
-    # generator.inversion_and_recon()
     end_time = time.time()
     print("total cost time", end_time - start_time)
-    # for image_name in os.listdir(style_image_dir):
-    #     style_path = os.path.join(style_image_dir,image_name)
-    #     config.app_image_path = style_path
-    #     generator = AppearanceTransferModel(config,cross_image_config)
-    #     ### 运行结果 ###
-    #     # generator.load_latents_or_invert_videos()
-    #     generator()
-    #     # generator.inversion_and_recon() # 验证inversion和recon的结果是否正确
-    #     end_time = time.time()
-    #     print("total cost time",end_time - start_time)
-
-    # generator = AppearanceTransferModel(config)
-    # for start in range(20,70,10):
-    #     config.cross_attn_64_range = [int(start),90]
-    #     config.cross_attn_32_range = [int(start), 70]
-    #     generator.config.cross_attn_64_range = config.cross_attn_64_range ### 注意必须要修改掉generator当中的值，单独改config没有作用
-    #     generator.config.cross_attn_32_range = config.cross_attn_32_range
-    #     generator(ablate_variable='style_injection_time',ablate_value=start)
-    # for start in range(1,8,2):
-    #     config.swap_guidance_scale = start
-    #     generator.config.swap_guidance_scale = config.swap_guidance_scale ### 注意必须要修改掉generator当中的值，单独改config没有作用
-    #     generator(ablate_variable='swap_guidance_scale',ablate_value=start)
-    # ablate的参数
-    # #for end in range(0,0.75,0.1):
-    # for contrast_strength in [1.67,3,5]:
-    #     config.contrast_strength = float(contrast_strength)
-    #     print("cur contrast_strength",contrast_strength)
-    #     generator.config.contrast_strength = config.contrast_strength ### 注意必须要修改掉generator当中的值，单独改config没有作用
-    #     generator(ablate_variable='contrast_strength',ablate_value=contrast_strength)
-
-    # config.gamma = 0.75
-    # for image_name in os.listdir(style_image_dir):
-    #     style_path = os.path.join(style_image_dir,image_name)
-    #     config.app_image_path = style_path
-    #     # generator.config.app_image_path = config.app_image_path
-    #     generator = AppearanceTransferModel(config) # 这个得每次重新加载模型，因为修改path放置在的是init当中
-    #     ### 运行结果 ###
-    #     # generator.load_latents_or_invert_videos()
-    #     generator()
-    #     # generator.inversion_and_recon() # 验证inversion和recon的结果是否正确
-    #     end_time = time.time()
-    #     print("total cost time",end_time - start_time)
 
 '''
---config /media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/configs/dog.yaml
+python3 video_appearance_transfer_model_recon.py --config Codes/cross-image-attention/configs/dog.yaml
 '''

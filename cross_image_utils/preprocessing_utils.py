@@ -84,18 +84,18 @@ def get_mask_u2net(pil_im, output_dir, u2net_path,name, device="cpu"):
     return im_final, predict
 if __name__ == "__main__":
 
-    # output_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/u2net_mask"
-    # image_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
+    # output_dir = "Codes/cross-image-attention/debug/u2net_mask"
+    # image_path = "Codes/StyleID/data/style_4sketch_style/4sketch_style1.png"
     # name = os.path.basename(image_path).split('.')[0]
     # pil_im = Image.open(image_path)
-    # u2net_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/DiffSketcher/checkpoint/u2net/u2net.pth"
+    # u2net_path = "Codes/DiffSketcher/checkpoint/u2net/u2net.pth"
     # im_final, predict = get_mask_u2net(pil_im, output_dir, u2net_path,name, device="cpu")
     # bin_threshold = 100
     for bin_threshold in range(150,210,10):
-        struct_path = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00000.jpg"
+        struct_path = "Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00000.jpg"
         pil_im = Image.open(struct_path)
         preprocessor = BinaryPreprocessor(bin_threshold=bin_threshold)
         bin_image = preprocessor.execute(pil_im)  # bin_image is a binary image (2D grayscale)
-        bin_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/binarization"
+        bin_dir = "Codes/cross-image-attention/debug/binarization"
         os.makedirs(bin_dir,exist_ok=True)
         bin_image.save(Path(bin_dir)/f'bin_{bin_threshold}_crop.png')

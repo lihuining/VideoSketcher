@@ -1,4 +1,4 @@
-name: cross_image
+name: videosketcher
 channels:
   - pytorch
   - defaults

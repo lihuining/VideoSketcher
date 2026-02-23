@@ -164,7 +164,7 @@ class AppearanceTransferModel:
                 value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
                 
                 # ## visualize
-                # save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs_debug/attentions"
+                # save_dir = "Codes/cross-image-attention/outputs_debug/attentions"
                 # visualize_and_save_features_pca(query[OUT_INDEX], int(model_self.step), save_dir, self.place_in_unet, suffix="q_cs")
 
                 # Compute the cross attention and apply our contrasting operation

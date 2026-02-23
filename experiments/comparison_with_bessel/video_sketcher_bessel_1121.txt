@@ -1,8 +1,0 @@
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/gold-fish/best_generated/2.1_chunk_size2_1/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/dance-jump/best_generated/2.1_chunk_size2_3/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/dog/best_generated/2.1_chunk_size2/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/dog/best_generated/2.1_chunk_size2/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/cows/best_generated/2.1_chunk_size2/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/flamingo/best_generated/2.1_chunk_size2/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/bear/best_generated/2.1_chunk_size2/generated_result
-/home/allenyljiang/Desktop/CVPR25/Struct_latents/blackswan/best_generated/2.1_chunk_size2/generated_result

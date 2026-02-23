@@ -1,5 +1,5 @@
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
-input_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/Video_Editing/data/tea-pour.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
+input_path: "Codes/Video_Editing/data/tea-pour.mp4" # Accept .mp4, .gif file or a folder with png/jpg sequence
 work_dir: "outputs/tea-pour"
 
 height: 512

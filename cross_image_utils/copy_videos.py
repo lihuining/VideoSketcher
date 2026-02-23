@@ -30,7 +30,7 @@ import shutil
 #                 print(f"Copied {src_img_path} to {dest_img_path}")
 #
 # # 使用示例
-# file_path = '/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/style_results/1109.txt'
+# file_path = 'Codes/cross-image-attention/experiments/style_results/1109.txt'
 # target_dir = '/media/allenyljiang/2CD8318DD83155F4/CVPR2025/ours'
 # copy_images_from_paths(file_path, target_dir)
 
@@ -40,13 +40,13 @@ mp4_data_dir="/media/allenyljiang/2CD8318DD83155F4/CVPR2025/Rebuttal/new_results
 #mp4_data_dir="/media/allenyljiang/2CD8318DD83155F4/CVPR2025"
 os.makedirs(mp4_data_dir,exist_ok=True)
 
-#mp_video_list = ['/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/generated_video_list/video_sketcher_1109_additional_mp4.txt']
-#mp_video_list = ['/home/allenyljiang/Desktop/CVPR25/ipadapter/output/ipadapter_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/semi_ref2sketch/semi_ref2sketch_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/ref2sketch/ref2sketch_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/Style_ID/output/styleid_1109_all_mp4.txt','/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/generated_video_list/videosketcher_1119_generated_video_list_mp4.txt','/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/generated_video_list/video_sketcher_1109_mp4.txt','/home/allenyljiang/Desktop/CVPR25/Cross_image_attention/cross_image_attention_1109_all_mp4.txt']
-#mp_video_list = ['/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/comparison_with_bessel/sketch_video_synthesis_1121_mp4.txt','/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/comparison_with_bessel/video_sketcher_bessel_1121_mp4.txt']
-#mp_video_list = ['/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/sketch_video_synthesis_mp4.txt','/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/bessel_style_video_mp4.txt']
-mp_video_list = ['/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/kid_football.txt',
-                 '/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/jump_dance_gamma0.6.txt',
-                 '/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/experiments/rebuttal/generated_list/libby.txt'
+#mp_video_list = ['Codes/cross-image-attention/experiments/generated_video_list/video_sketcher_1109_additional_mp4.txt']
+#mp_video_list = ['/home/allenyljiang/Desktop/CVPR25/ipadapter/output/ipadapter_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/semi_ref2sketch/semi_ref2sketch_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/ref2sketch/ref2sketch_1109_all_mp4.txt','/home/allenyljiang/Desktop/CVPR25/Style_ID/output/styleid_1109_all_mp4.txt','Codes/cross-image-attention/experiments/generated_video_list/videosketcher_1119_generated_video_list_mp4.txt','Codes/cross-image-attention/experiments/generated_video_list/video_sketcher_1109_mp4.txt','/home/allenyljiang/Desktop/CVPR25/Cross_image_attention/cross_image_attention_1109_all_mp4.txt']
+#mp_video_list = ['Codes/cross-image-attention/experiments/comparison_with_bessel/sketch_video_synthesis_1121_mp4.txt','Codes/cross-image-attention/experiments/comparison_with_bessel/video_sketcher_bessel_1121_mp4.txt']
+#mp_video_list = ['Codes/cross-image-attention/experiments/sketch_video_synthesis_mp4.txt','Codes/cross-image-attention/experiments/bessel_style_video_mp4.txt']
+mp_video_list = ['Codes/cross-image-attention/experiments/rebuttal/generated_list/kid_football.txt',
+                 'Codes/cross-image-attention/experiments/rebuttal/generated_list/jump_dance_gamma0.6.txt',
+                 'Codes/cross-image-attention/experiments/rebuttal/generated_list/libby.txt'
                  ]
 
 # 遍历每个视频列表文件

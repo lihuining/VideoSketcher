@@ -195,7 +195,7 @@ class Segmentor:
             mask_struct_32 = self.create_mask_batch(clusters_struct_32, self.cross_attention_32, STRUCT_INDEX)
             mask_struct_64 = self.create_mask_batch(clusters_struct_64, self.cross_attention_64, STRUCT_INDEX)
 
-            save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/masks"
+            save_dir = "Codes/cross-image-attention/debug/masks"
             show_tensor_image(save_dir,mask_style_64,'style',64)
             show_tensor_image(save_dir,mask_struct_64, 'struct', 64)
         else:
@@ -207,7 +207,7 @@ class Segmentor:
             mask_struct_32 = self.create_mask(clusters_struct_32, self.cross_attention_32, STRUCT_INDEX)
             mask_style_64 = self.create_mask(clusters_style_64, self.cross_attention_64, STYLE_INDEX)
             mask_struct_64 = self.create_mask(clusters_struct_64, self.cross_attention_64, STRUCT_INDEX)
-            save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/masks"
+            save_dir = "Codes/cross-image-attention/debug/masks"
             show_tensor_image(save_dir,mask_style_64,'style',64)
             show_tensor_image(save_dir,mask_struct_64, 'struct', 64)
         return mask_style_32, mask_struct_32, mask_style_64, mask_struct_64

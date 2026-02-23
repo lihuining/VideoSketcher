@@ -22,7 +22,7 @@ import cv2
 from controlnet_aux import LineartDetector
 def initialize_ted(device):
     model = TED()
-    checkpoint_path = '/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/TEED/checkpoints/BIPED/7/7_model.pth'
+    checkpoint_path = 'Codes/cross-image-attention/TEED/checkpoints/BIPED/7/7_model.pth'
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.to(device).eval()
     return model
@@ -30,7 +30,7 @@ def initialize_ted(device):
 def initialize_hed(device):
     hed_model = HED()
     hed_model.apply(weight_init)
-    hed_checkpoint = torch.load('/media/allenyljiang/564AFA804AFA5BE51/Codes/mixsa/checkpoint/network-bsds500.pytorch', map_location=device)
+    hed_checkpoint = torch.load('Codes/mixsa/checkpoint/network-bsds500.pytorch', map_location=device)
     hed_model.load_state_dict(hed_checkpoint)
     hed_model = hed_model.to(device)
     hed_model.eval()
@@ -191,9 +191,9 @@ def load_edge(path, device, method='teed', save_path=None, thresholds=None):
 
 
 if __name__ == "__main__":
-    image_path = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/camel/imgs_crop_fore/00002.jpg"
+    image_path = "Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/camel/imgs_crop_fore/00002.jpg"
     class_name = image_path.split('/')[-3]
-    save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/edge_results"
+    save_dir = "Codes/cross-image-attention/debug/edge_results"
     name = os.path.basename(image_path).split('.')[0]
     method = "teed"
     alpha = 0.55

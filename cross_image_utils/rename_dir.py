@@ -3,12 +3,12 @@ import shutil
 
 # 定义需要处理的目录列表
 directories = [
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/bird-on-feeder',
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/cat-in-the-sun',
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/fireworks-display',
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/setting-sun',
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/ship-sailing',
-    '/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/wind-turbines-at-dusk'
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/bird-on-feeder',
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/cat-in-the-sun',
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/fireworks-display',
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/setting-sun',
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/ship-sailing',
+    'Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/wind-turbines-at-dusk'
 ]
 
 # 遍历每个目录
