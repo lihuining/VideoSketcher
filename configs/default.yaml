@@ -1,6 +1,6 @@
 # 模型版本以及路径
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
-model_key: "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
+model_key: "StableDiffusion_Models/stable-diffusion-v1-5"
 # Specify model key. If set, ignore sd_version.
 whether_use_ablation: True
 ablation_key: null
@@ -10,8 +10,8 @@ work_dir: "workdir" # 输入视频保存路径
 height: 512
 width: 512
 ## cross image attention
-app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg"
-app_image_save_path: "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/data/" # 不需要加名字
+app_image_path: "Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0020.jpg"
+app_image_save_path: "Codes/cross-image-attention/data/" # 不需要加名字
 
 struct_image_path: None
 domain_name: 'object'   # 传进去之后是str？
@@ -83,4 +83,4 @@ device: "cuda"
 # base_config: "configs/default.yaml" # Set a base config file here
 float_precision: "fp32" # "fp16" or "fp32"
 enable_xformers_memory_efficient_attention: True
-# /media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/lllyasviel/control_v11f1p_sd15_depth
+# StableDiffusion_Models/lllyasviel/control_v11f1p_sd15_depth

@@ -16,12 +16,12 @@ from torchvision import transforms
 from cross_image_utils.CSD_Score.model import CSD_CLIP, convert_state_dict
 
 
-style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00009.jpg"
-content_image_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs/breakdance-flare/ref0020/1.5_2matching_guidance_1start_time51end_time301/recon_result/0000.png"
+style_image_dir = "Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00009.jpg"
+content_image_dir = "Codes/cross-image-attention/outputs/breakdance-flare/ref0020/1.5_2matching_guidance_1start_time51end_time301/recon_result/0000.png"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # init style clip model
-clip_model = CSD_CLIP("vit_large", "default", model_path="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
-model_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
+clip_model = CSD_CLIP("vit_large", "default", model_path="Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
+model_path = "Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
 checkpoint = torch.load(model_path, map_location="cpu")
 state_dict = convert_state_dict(checkpoint['model_state_dict'])
 clip_model.load_state_dict(state_dict, strict=False)

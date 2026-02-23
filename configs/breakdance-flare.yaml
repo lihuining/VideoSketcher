@@ -1,5 +1,5 @@
 sd_version: "1.5" # In ['2.1', '2.0', '1.5', 'depth']
-input_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore" # Accept .mp4, .gif file or a folder with png/jpg sequence
+input_path: "Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore" # Accept .mp4, .gif file or a folder with png/jpg sequence
 work_dir: "outputs/" # 不用写视频名称
 
 height: 512

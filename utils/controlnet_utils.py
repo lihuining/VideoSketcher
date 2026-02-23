@@ -19,7 +19,7 @@ CONTROLNET_DICT = {
     "ip2p": "lllyasviel/control_v11e_sd15_ip2p",
     "openpose": "lllyasviel/control_v11p_sd15_openpose",
     "softedge": "lllyasviel/control_v11p_sd15_softedge",
-    "depth": "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/lllyasviel/control_v11f1p_sd15_depth",
+    "depth": "StableDiffusion_Models/lllyasviel/control_v11f1p_sd15_depth",
     "lineart_anime": "lllyasviel/control_v11p_sd15s2_lineart_anime",
     "canny": "lllyasviel/control_v11p_sd15_canny"
 }
@@ -63,7 +63,7 @@ def depth_prepreocess(image, **kwargs):
     image_ls = []
     for img in image:
         image_ls.append(T.ToPILImage()(img))
-    depth_estimator = transformers.pipeline('depth-estimation', model="/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/Intel/dpt-large")
+    depth_estimator = transformers.pipeline('depth-estimation', model="StableDiffusion_Models/Intel/dpt-large")
     ret = depth_estimator(image_ls)
     depth_ls = []
     for r in ret:

@@ -356,7 +356,7 @@ class FreeUUNet2DConditionModel(UNet2DConditionModel):
                 )
             #print("up layer",i,"shape",sample.shape) # [6,1280,16,16] ->[6, 1280, 32, 32] -> [6, 640, 64, 64]-> [6, 320, 64, 64]
             # if i == up_length - 1:
-            save_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/UNet_feature"
+            save_dir = "Codes/cross-image-attention/debug/UNet_feature"
             total_length = len(sample)
             chunk_size = total_length // 3
             #visualize_and_save_features_pca(sample[0], timestep, save_dir, 'up_last2', n_components=3, suffix="stylized")

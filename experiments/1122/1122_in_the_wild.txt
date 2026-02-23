@@ -1,6 +1,0 @@
-/media/allenyljiang/2CD8318DD83155F4/CVPR2025/Struct_latents/ship-sailing/2/2.1_chunk_size2_1/generated_result
-
-/media/allenyljiang/2CD8318DD83155F4/CVPR2025/Struct_latents/ship-sailing/ref0005/2.1_chunk_size2_1/generated_result
-
-
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/ship-sailing/ori

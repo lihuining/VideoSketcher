@@ -731,8 +731,8 @@ class Inverter(nn.Module):
         self.zs_struct = zs_struct
     def load_single_image_init(self):
         print("Loading existing latents...")
-        self.cross_image_config.app_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
-        self.cross_image_config.struct_latent_save_path = Path("/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
+        self.cross_image_config.app_latent_save_path = Path("Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/4sketch_style1.pt")
+        self.cross_image_config.struct_latent_save_path = Path("Codes/cross-image-attention/output/animal/app=4sketch_style1---struct=000000/latents/000000.pt")
         latents_app, latents_struct = load_latents(self.cross_image_config.app_latent_save_path, self.cross_image_config.struct_latent_save_path)
         noise_app, noise_struct = load_noise(self.cross_image_config.app_latent_save_path, self.cross_image_config.struct_latent_save_path)
         self.set_latents(latents_app, latents_struct)
@@ -866,7 +866,7 @@ class Inverter(nn.Module):
             # zs_all = torch.stack(zs_batch,dim=0)
             # wts_all = torch.stack(wts_batch,dim=0)
             # latent_reconstruction_all = torch.stack(latent_reconstruction_list,dim=0) # [5,1,4,6,4]
-            # debug_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug/single_variables"
+            # debug_dir = "Codes/cross-image-attention/debug/single_variables"
             # torch.save(zs_all,os.path.join(debug_dir,'zs.pth'))
             # torch.save(wts_all,os.path.join(debug_dir,'wts.pth'))
             # torch.save(latent_reconstruction_all, os.path.join(debug_dir, 'latents_recon.pth'))
@@ -888,7 +888,7 @@ if __name__ == "__main__":
     seed_everything(config.seed)
     inversion = Inverter(pipe, pipe.scheduler, config,cross_image_config)
     inversion(config.input_path, config.inversion.save_path)
-    # style_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
+    # style_dir = "Dataset/Sketch_dataset/ref2sketch_yr/ref"
     # for stylename in os.listdir(style_dir):
     #     inversion.config.app_image_path = os.path.join(style_dir,stylename)
     #     inversion(inversion.config.app_image_path, config.app_image_save_path)
@@ -898,7 +898,7 @@ if __name__ == "__main__":
 python invert.py --config configs/tea-pour-debug.yaml
 --config configs/default.yaml
 recon_frames = self.decode_latents_batch(xts[:,-1,])
-recon_save_path="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/debug"
+recon_save_path="Codes/cross-image-attention/debug"
 save_frames(recon_frames, recon_save_path)
 '''
 

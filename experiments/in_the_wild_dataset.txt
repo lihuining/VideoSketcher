@@ -1,6 +1,0 @@
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/setting-sun/ori
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/ship-sailing/ori
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/bird-on-feeder/ori
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/cat-in-the-sun/ori
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/fireworks-display/ori
-/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu-tgve-2023/videvo_480p/480p_frames/wind-turbines-at-dusk/ori

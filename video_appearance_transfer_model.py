@@ -124,9 +124,9 @@ class AppearanceTransferModel:
         self.key_injection_layers = set()
         ## add CLIP
         self.clip_model = CSD_CLIP("vit_large", "default",
-                              model_path="/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
+                              model_path="Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
         set_requires_grad(self.clip_model, False)
-        model_path = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
+        model_path = "Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
         checkpoint = torch.load(model_path, map_location="cpu")
         state_dict = convert_state_dict(checkpoint['model_state_dict'])
         self.clip_model.load_state_dict(state_dict, strict=False)
@@ -1325,41 +1325,10 @@ if __name__ == "__main__":
     start_time = time.time()
     config = load_config()
     seed_everything(config.seed)
-    style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref"
     generator = AppearanceTransferModel(config)
-    input_path_txt = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/loveu_davis.txt"
-    app_image_path_txt = "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/goat_videosketcher_teaser.txt"
-
-    # 从文件中读取每一行并保存到列表
-    # input_path_list = []
-    # with open(input_path_txt, "r") as file:
-    #     for line in file:
-    #         line = line.strip()
-    #         if os.path.isdir(line):
-    #             video_name = os.listdir(line)[0]
-    #             video_path = os.path.join(line, video_name)
-    #             input_path_list.append(video_path)
-    #         else:
-    #             input_path_list.append(line)
-
-    # with open(input_path_txt, "r") as file:
-    #     input_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    input_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/goat/imgs_crop_fore"]
-    with open(app_image_path_txt, "r") as file:
-        app_image_path_list = [line.strip() for line in file if line.strip()]  # 去除空行和两端空格
-    # app_image_path_list = ["/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/4SketchStyle/style1/style1_2.PNG","/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref/ref0026.jpg"]
-    # for input_path in input_path_list:
-    #     for app_image_path in app_image_path_list:
-    #         generator.config.input_path = input_path
-    #         generator.config.app_image_path = app_image_path
-    #         generator.update_paths()
-    #         generator()
+    generator.update_paths()
     generator()
-    end_time = time.time()
-    print("total cost time", end_time - start_time)
+    
 
 
 
-'''
-python3 video_appearance_transfer_model.py --config /media/allenyljiang/2CD8318DD83155F4/Codes/cross-image-attention/configs/iccv/libby.yaml
-'''
