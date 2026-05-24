@@ -20,3 +20,12 @@ tensorboard
 git+https://github.com/openai/CLIP.git
 lpips
 pytlsd
+einops
+omegaconf
+Pillow
+tqdm
+pyav
+matplotlib
+seaborn
+kornia
+gdown
