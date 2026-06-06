@@ -1,0 +1,107 @@
+# =============================================================================
+# Model
+# =============================================================================
+sd_version: "2.1"
+model_id: "/root/paddlejob/workspace/output/models/Manojb/stable-diffusion-2-1-base"
+float_precision: "fp32"                # fp16 / fp32
+enable_xformers_memory_efficient_attention: True
+device: "cuda"
+seed: 123
+
+# CLIP model paths for evaluation
+csd_clip_vit_path: "/root/paddlejob/workspace/output/0915_detection/WACV_paper/cross_image_attention/pretrained_models/CSD_Score/ViT-L-14.pt"
+csd_clip_checkpoint_path: "/root/paddlejob/workspace/output/0915_detection/WACV_paper/cross_image_attention/pretrained_models/CSD_Score/checkpoint.pth"
+
+# =============================================================================
+# Data
+# =============================================================================
+input_path: "/root/paddlejob/workspace/output/0915_detection/dataset/DAVIS/dataset/bear/imgs_crop_fore"
+app_image_path: "/root/paddlejob/workspace/output/0915_detection/dataset/style_dataset/ref2sketch_yr/ref/ref0006.jpg"
+height: 512
+width: 512
+
+# =============================================================================
+# Output
+# =============================================================================
+work_dir: "/root/paddlejob/workspace/output/0915_detection/WACV_paper/temp_results/Struct_latents/fp32"
+app_image_save_path: "/root/paddlejob/workspace/output/0915_detection/WACV_paper/temp_results/data/"
+generate_type: "video"                  # image / video
+
+# =============================================================================
+# Inversion (DDIM forward + reverse reconstruction)
+# =============================================================================
+inversion:
+  prompt: "a photo of an object"
+  steps: 100
+  save_intermediate: True
+  n_frames: 10
+  force: False
+  batch_size: 4
+  skip_steps: 32
+
+# =============================================================================
+# Generation / Stylization
+# =============================================================================
+generation:
+  control: "pnp"
+  chunk_size: 2
+  guidance_scale: 7.5
+  n_timesteps: 50
+  negative_prompt: "ugly, blurry, low res"
+  prompt:
+    VG: "a dog walking on the ground near a bush, Van Gogh style."
+    desert: "a dog walking in the desert near a bush."
+
+# =============================================================================
+# Cross-Image Attention
+# =============================================================================
+enable_edit: True
+use_masked_adain: False
+use_adain: False
+adain_range: [20, 100]
+keep_struct: False
+keep_struct_end: 61
+gamma: 0.4
+gamma_end: 61
+temperature: 1.0
+load_latents: True
+perform_cross_frame: False
+perform_cross_frame_with_prev: False
+latent_update: False
+start_frame: 0
+swap_guidance_scale: 3.5
+
+# Key-value injection settings
+up_layers_start_index: 4
+cond_layer: 7
+
+# =============================================================================
+# Contrast / Matching Guidance
+# =============================================================================
+contrast_strength: 1
+use_adaptive_contrast: True
+update_with_matching: False
+update_with_matching_guidance: 1
+update_with_matching_start_time: 1
+update_with_matching_end_time: 671
+update_with_clip: False
+update_with_clip_guidance: 100
+update_with_clip_start_time: 1
+update_with_clip_end_time: 371
+
+# Edge preprocessing
+use_edge: False
+edge_method: "teed"
+
+# VidToMe
+local_merge_ratio: 0.9
+global_merge_ratio: 0.8
+global_rand: 0.5
+
+# Ablation (auto-save path suffix)
+ablation_key: "gamma_end"
+
+# =============================================================================
+# Base config (optional, for merging defaults)
+# =============================================================================
+base_config: "configs/default.yaml"

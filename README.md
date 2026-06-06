@@ -37,7 +37,7 @@ python3 -c "import nltk; nltk.download('punkt'); nltk.download('averaged_percept
 ### Download Pre-trained Weights
 
 #### StableDiffusion 
-Download the StableDiffusion weights from [stable-diffusion-v1-5 at Hugging Face](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5) or your specific SD version.
+Download the StableDiffusion weights from [stable-diffusion-2-1-base at Hugging Face](https://huggingface.co/Manojb/stable-diffusion-2-1-base) or your specific SD version.
 
 #### CSD Score (for Evaluation)
 Download the CSD Score model for style similarity evaluation from [CSD_Score](https://github.com/haofanwang/CSD_Score). Download the pre-trained weights and place them under `./pretrained_models/CSD_Score`:
@@ -69,18 +69,89 @@ We evaluate our method on the following video datasets:
 
 ## Usage
 
-To run the video appearance transfer, execute the main script and pass the path to your configuration file. 
+### 1. Inversion & Reconstruction (Validation)
 
-Example running with a dog configuration inversion and reconstruction:
+Run DDIM inversion and reconstruction to validate latent quality:
+
 ```bash
-python3 video_appearance_transfer_model_recon.py --config configs/dog.yaml
+conda activate videosketcher
+python3 inversion.py --config configs/kid-football_video.yaml
 ```
 
-Example running with a libby configuration video style transfer:
-set input_path and app_image_path in the config:
+Output paths:
+- Video reconstruction: `{work_dir}/{video_name}/latents/recon_frames_batch/`
+- Style reconstruction: `{app_image_save_path}/{style_name}/{model_key}/recon_frames/`
+
+### 2. Video Style Transfer
+
+Set `input_path` and `app_image_path` in the config, then run:
+
 ```bash
-python3 video_appearance_transfer_model.py --config configs/libby.yaml
+conda activate videosketcher
+python3 video_stylize.py --config configs/kid-football_video.yaml
 ```
+
+Output (under `{work_dir}/{video_name}/{style_name}/`):
+| Directory | Content |
+|---|---|
+| `stylized_frames/` | Final stylized frames + `generated.mp4` |
+| `content_recon/` | Content reconstruction frames |
+| `style_frames/` | Style result frames |
+| `intermediate/` | Per-chunk intermediate outputs |
+| `matching_vis/` | Sparse matching visualizations |
+| `config.yaml` | Runtime configuration snapshot |
+
+### 3. Evaluation
+
+Compute CLIP temporal consistency, Pixel MSE, FID, LPIPS, and ArtFID:
+
+**Single video+style pair:**
+```bash
+cd evaluations
+python3 evaluate.py \
+    --struct /path/to/original/frames \
+    --style /path/to/style.jpg \
+    --generated /path/to/stylized/frames \
+    --frames 10
+```
+
+**Batch mode** (multiple pairs from TXT files):
+```bash
+cd evaluations
+python3 evaluate.py \
+    --struct-list structs.txt \
+    --style-list styles.txt \
+    --generated-list generated.txt \
+    --frames 10 \
+    --output results.csv
+```
+
+The TXT files should contain one path per line:
+
+`structs.txt` — original video frame directories:
+```
+/path/to/video1/imgs_crop_fore
+/path/to/video2/imgs_crop_fore
+```
+
+`styles.txt` — style reference images:
+```
+/path/to/style1.jpg
+/path/to/style2.jpg
+```
+
+`generated.txt` — stylized output directories or .mp4 paths (one per style-video pair):
+```
+/path/to/video1/style1/stylized_frames
+/path/to/video1/style2/stylized_frames
+/path/to/video2/style1/stylized_frames
+```
+
+**Required pretrained models** (see [Download Pre-trained Weights](#download-pre-trained-weights)):
+- CLIP ViT-B/32 (~350MB, auto-cached to `~/.cache/clip/`)
+- GMFlow (`pretrained_models/flow/gmflow_sintel-0c07dcb3.pth`)
+- Art-Inception (`pretrained_models/art_fid/art_inception.pth`)
+- AlexNet (`~/.cache/torch/hub/checkpoints/alexnet-owt-7be5be79.pth`, auto-downloaded by LPIPS)
 
 ### Configuration Details
 
@@ -88,7 +159,7 @@ Before running, you need to modify the parameters inside your `.yaml` configurat
 
 * `input_path`: The directory path to your original input video.
 * `sd_version`: The specific Stable Diffusion version you are using.
-* `model_key`: The local folder path where your downloaded Stable Diffusion model files are saved.
+* `model_id`: The local folder path where your downloaded Stable Diffusion model files are saved.
 * `app_image_path`: The path to the style reference image.
 * `app_image_save_path`: The directory path to store the results after style inversion.
 

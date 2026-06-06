@@ -16,16 +16,45 @@ from torchvision import transforms
 from cross_image_utils.CSD_Score.model import CSD_CLIP, convert_state_dict
 
 
-style_image_dir = "Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00009.jpg"
-content_image_dir = "Codes/cross-image-attention/outputs/breakdance-flare/ref0020/1.5_2matching_guidance_1start_time51end_time301/recon_result/0000.png"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-# init style clip model
-clip_model = CSD_CLIP("vit_large", "default", model_path="Codes/cross-image-attention/cross_image_utils/CSD_Score/models/ViT-L-14.pt")
-model_path = "Codes/cross-image-attention/cross_image_utils/CSD_Score/models/checkpoint.pth"
-checkpoint = torch.load(model_path, map_location="cpu")
-state_dict = convert_state_dict(checkpoint['model_state_dict'])
-clip_model.load_state_dict(state_dict, strict=False)
-clip_model = clip_model.to(device)
+_clip_model = None
+
+# Default model paths will be read from YAML config when init_clip_model is called
+_DEFAULT_VIT_PATH = None
+_DEFAULT_CHECKPOINT_PATH = None
+
+
+def init_clip_model(vit_path=None, checkpoint_path=None):
+    global _clip_model
+    if vit_path is None:
+        vit_path = _DEFAULT_VIT_PATH
+    if checkpoint_path is None:
+        checkpoint_path = _DEFAULT_CHECKPOINT_PATH
+
+    _clip_model = CSD_CLIP("vit_large", "default", model_path=vit_path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    state_dict = convert_state_dict(checkpoint['model_state_dict'])
+    _clip_model.load_state_dict(state_dict, strict=False)
+    _clip_model = _clip_model.to(device)
+    return _clip_model
+
+
+def get_clip_model():
+    global _clip_model
+    if _clip_model is None:
+        init_clip_model()
+    return _clip_model
+
+
+# Backward compatibility: other scripts may do `from CLIP_model import clip_model`.
+# Module-level __getattr__ provides lazy access for any code that accesses
+# `CLIP_model.clip_model` as an attribute on the module.
+def __getattr__(name):
+    if name == "clip_model":
+        return get_clip_model()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def spherical_dist_loss(x, y):
     return -x@y.T
 
@@ -57,15 +86,18 @@ def tensor_process(image_path):
     normalize = transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)) # normalize表示每个通道的均值和方差
     return normalize(transforms.Resize(224)(input_tensor))
 if __name__ == "__main__":
+    style_image_dir = "/media/allenyljiang/5234E69834E67DFB/Dataset/Video_Dataset/DAVIS-2017-trainval-Full-Resolution/DAVIS/dataset/breakdance-flare/imgs_crop_fore/00009.jpg"
+    content_image_dir = "/media/allenyljiang/564AFA804AFA5BE51/Codes/cross-image-attention/outputs/breakdance-flare/ref0020/1.5_2matching_guidance_1start_time51end_time301/recon_result/0000.png"
+
     # computer style embedding
     style_image_ = tensor_process(style_image_dir).to(device) # torch.Size([1, 3, 224, 224])
     with torch.no_grad():
-        _, content1, style1 = clip_model(style_image_)
+        _, content1, style1 = get_clip_model()(style_image_)
 
     # computer content embedding
     content_image_ = tensor_process(content_image_dir).to(device) # torch.Size([1, 3, 224, 224])
     with torch.no_grad():
-        _, content2, style2 = clip_model(content_image_)
+        _, content2, style2 = get_clip_model()(content_image_)
 
 
     print(spherical_dist_loss(content1,content2),spherical_dist_loss(style1,style2))
