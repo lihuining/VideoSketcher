@@ -245,13 +245,23 @@ def plot_adaptive_contrast_over_time(txt_file, png_file):
     data = []
     with open(txt_file, 'r') as file:
         for line in file:
-            place_in_unet, time_step, contrast_strength,after_contrast_strength = line.strip().split(',')
+            parts = [part.strip() for part in line.strip().split(',')]
+            if len(parts) == 4:
+                place_in_unet, time_step, contrast_strength, after_contrast_strength = parts
+            elif len(parts) == 3:
+                place_in_unet, time_step, contrast_strength = parts
+                after_contrast_strength = contrast_strength
+            else:
+                continue
             data.append({
                 'place_in_unet': place_in_unet.strip(),
                 'time_step': int(time_step.strip()),
                 'contrast_strength': float(contrast_strength.strip()),
-                'after_contrast_strength':float(after_contrast_strength.strip())
+                'after_contrast_strength': float(after_contrast_strength.strip())
             })
+
+    if not data:
+        return
 
     # 转换为 DataFrame
     df = pd.DataFrame(data)

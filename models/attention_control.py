@@ -174,9 +174,10 @@ class AttentionControlMixin:
                                     f.write(f"{self.place_in_unet},{map_names[i]},{time_step},{cur_std[i]}\n")
                             if model_self.config.use_adaptive_contrast:
                                 cs = max(cur_std_after[2] / cur_std_after[0], cur_std_after[1] / cur_std_after[0])
-                                model_self.config.contrast_strength = cs
+                                after_softmax = cs
+                                model_self.config.contrast_strength = after_softmax
                                 with open(model_self.adaptive_contrast_file, 'a') as f:
-                                    f.write(f"{self.place_in_unet},{time_step},{cs}\n")
+                                    f.write(f"{self.place_in_unet}, {time_step}, {model_self.config.contrast_strength},{after_softmax}\n")
 
                     if attn_weight is not None and model_self.config.use_masked_adain \
                             and model_self.step == model_self.config.adain_range[0] - 1:
