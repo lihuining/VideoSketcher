@@ -55,6 +55,32 @@ mkdir -p ./pretrained_models/art_fid
 wget https://huggingface.co/matthias-wright/art_inception/resolve/main/art_inception.pth -O ./pretrained_models/art_fid/art_inception.pth
 ```
 
+#### GlueStick / SuperPoint (for Matching Guidance)
+If `update_with_matching: True`, VideoSketcher uses GlueStick and SuperPoint for sparse matching guidance. Download the weights before running, otherwise the code will try to download them from GitHub at runtime and may fail in restricted network environments.
+
+Place the weights here:
+
+```text
+cross_image_utils/gluestick/resources/weights/superpoint_v1.pth
+cross_image_utils/gluestick/resources/weights/checkpoint_GlueStick_MD.tar
+```
+
+Example:
+
+```bash
+mkdir -p cross_image_utils/gluestick/resources/weights
+wget https://github.com/cvg/GlueStick/releases/download/v0.1_arxiv/checkpoint_GlueStick_MD.tar \
+  -O cross_image_utils/gluestick/resources/weights/checkpoint_GlueStick_MD.tar
+wget https://github.com/magicleap/SuperGluePretrainedNetwork/raw/master/models/weights/superpoint_v1.pth \
+  -O cross_image_utils/gluestick/resources/weights/superpoint_v1.pth
+```
+
+If your server needs a proxy, run the download commands with proxy environment variables, for example:
+
+```bash
+http_proxy=http://your.proxy:port https_proxy=http://your.proxy:port wget <url> -O <output_path>
+```
+
 ## Datasets
 
 ### Video Datasets
