@@ -1,17 +1,16 @@
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Any
 
 import numpy as np
 import torch
 from PIL import Image
 
-from appearance_transfer_model import AppearanceTransferModel
 from config import RunConfig
 from cross_image_utils import image_utils
 from cross_image_utils.ddpm_inversion import invert
 import os
 
-def load_latents_or_invert_images(model: AppearanceTransferModel, cfg: RunConfig):
+def load_latents_or_invert_images(model: Any, cfg: RunConfig):
     if cfg.load_latents and cfg.app_latent_save_path.exists() and cfg.struct_latent_save_path.exists():
         print("Loading existing latents...")
         latents_app, latents_struct = load_latents(cfg.app_latent_save_path, cfg.struct_latent_save_path)
@@ -50,7 +49,7 @@ def load_noise(app_latent_save_path: Path, struct_latent_save_path: Path) -> Tup
     return latents_app, latents_struct
 
 
-def invert_images(sd_model: AppearanceTransferModel, app_image: Image.Image, struct_image: Image.Image, cfg: RunConfig):
+def invert_images(sd_model, app_image: Image.Image, struct_image: Image.Image, cfg: RunConfig):
     input_app = torch.from_numpy(np.array(app_image)).float() / 127.5 - 1.0
     input_struct = torch.from_numpy(np.array(struct_image)).float() / 127.5 - 1.0
     # noise,latent
@@ -122,7 +121,7 @@ def invert_videos_and_image(sd_model, app_image, struct_image_list, prompt,style
         torch.save(latents_struct_frames[:,cfg.inversion.skip_steps],latent_path) # cfg.inversion.skip_steps
         content_latents, content_noises = latents_struct_frames[:,cfg.inversion.skip_steps],zs_structs_frames[:,cfg.inversion.skip_steps:]
         return content_latents, content_noises
-def get_init_latents_and_noises(model: AppearanceTransferModel, cfg: RunConfig) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_init_latents_and_noises(model, cfg: RunConfig) -> Tuple[torch.Tensor, torch.Tensor]:
     # If we stored all the latents along the diffusion process, select the desired one based on the skip_steps
     if model.latents_struct.dim() == 4 and model.latents_app.dim() == 4 and model.latents_app.shape[0] > 1:
         model.latents_struct = model.latents_struct[cfg.skip_steps]
@@ -130,7 +129,7 @@ def get_init_latents_and_noises(model: AppearanceTransferModel, cfg: RunConfig) 
     init_latents = torch.stack([model.latents_struct, model.latents_app, model.latents_struct]) # torch.Size([3, 4, 64, 64])
     init_zs = [model.zs_struct[cfg.skip_steps:], model.zs_app[cfg.skip_steps:], model.zs_struct[cfg.skip_steps:]] # list:3,torch.Size([68, 4, 64, 64])
     return init_latents, init_zs
-def get_init_latents_and_noises_video1frame(model: AppearanceTransferModel, cfg: RunConfig) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_init_latents_and_noises_video1frame(model: Any, cfg: RunConfig) -> Tuple[torch.Tensor, torch.Tensor]:
     # If we stored all the latents along the diffusion process, select the desired one based on the skip_steps
     if model.latents_struct.dim() == 4 and model.latents_app.dim() == 4 and model.latents_app.shape[0] > 1:
         model.latents_struct = model.latents_struct[cfg.skip_steps]

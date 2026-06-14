@@ -1,0 +1,84 @@
+sd_version: "2.1"
+model_id: "/root/paddlejob/workspace/output/models/Manojb/stable-diffusion-2-1-base"
+#sd_version: "1.5"
+# 根据input_path修改target_path
+input_path: "./assets/example/video"
+#work_dir: "outputs/"
+work_dir: "./output/sketch-transfer"
+
+app_image_path: "./assets/example/sketch.jpg"
+#app_image_path: "/media/allenyljiang/5234E69834E67DFB/Dataset/Sketch_dataset/ref2sketch_yr/ref_camel/ref0030.jpg"
+app_image_save_path: "./output/sketch" # 不需要加名字
+
+height: 512
+width: 512
+## cross image attention
+enable_edit: True
+use_masked_adain: False
+load_latents: True  # false则重新invert
+keep_struct: False # inject structure
+keep_struct_end: 61
+gamma: 0.4 #0.6
+gamma_end: 61
+perform_cross_frame: False # 设置为True的时候chunk_size至少为2,single_image_test
+perform_cross_frame_with_prev: False # 设置为True的时候chunk_size为1
+#perform_cross_frame: False #
+#perform_cross_frame_with_prev: True
+latent_update: False
+start_frame: 0
+update_with_matching: True
+update_with_matching_guidance: 1
+swap_guidance_scale: 3.5
+update_with_matching_start_time: 1
+update_with_matching_end_time: 181
+sequential_vae_decode: True
+matching_vae_checkpoint: True
+update_with_clip: False # 使用clip更新latents
+update_with_clip_guidance: 100
+update_with_clip_start_time: 1  # 60
+update_with_clip_end_time: 371
+use_edge: False
+contrast_strength: 1
+use_adaptive_contrast: True
+inversion:
+  save_path: "${work_dir}/latents"
+#  prompt: "a dog walking on the ground near a bush."
+  prompt: "a photo of an object"
+  steps: 100 # inversion的时间步
+  save_intermediate: True # Save intermediate latents. Required when using PnP.
+  n_frames: 10 #2 #null #2 #50 #11 # 15 # 70
+  force: False # Force run inversion even inverted latents have been found
+
+generation:
+  control: "pnp"
+  chunk_size: 2  #
+  guidance_scale: 7.5 # CFG scale
+  n_timesteps: 50
+  negative_prompt: "ugly, blurry, low res"
+  prompt:
+    VG: "a dog walking on the ground near a bush, Van Gogh style."
+    desert: "a dog walking in the desert near a bush."
+
+
+  latents_path: "${work_dir}/latents"
+  output_path: "${work_dir}"
+
+  # VidToMe args. See details in "src/vidtome/patch.py, apply_patch()"
+  local_merge_ratio: 0.9
+  global_merge_ratio: 0.8
+  global_rand: 0.5
+
+generate_type: "video" # generate image or video type
+images_save_dir: "/root/paddlejob/workspace/output/0915_detection/WACV_paper/temp_results/images_save_dir"
+seed: 123
+device: "cuda"
+base_config: "configs/default.yaml" # Use default values in template.yaml
+
+float_precision: "fp32"
+enable_xformers_memory_efficient_attention: True
+
+## CLIP model paths (CSD_Score)
+csd_clip_vit_path: "./pretrained_models/CSD_Score/ViT-L-14.pt"
+csd_clip_checkpoint_path: "./pretrained_models/CSD_Score/checkpoint.pth"
+
+ablation_key: "gamma_end"

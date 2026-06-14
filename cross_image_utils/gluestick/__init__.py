@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-GLUESTICK_ROOT = Path(__file__).parent.parent
+GLUESTICK_ROOT = Path(__file__).parent
 
 
 def get_class(mod_name, base_path, BaseClass):

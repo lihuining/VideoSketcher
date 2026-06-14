@@ -3,6 +3,17 @@ from secrets import choice
 from typing import Tuple, List
 from utils import load_config, save_config
 import nltk
+for nltk_resource, nltk_package in [
+    ('tokenizers/punkt', 'punkt'),
+    ('taggers/averaged_perceptron_tagger', 'averaged_perceptron_tagger'),
+]:
+    try:
+        nltk.data.find(nltk_resource)
+    except LookupError:
+        try:
+            nltk.download(nltk_package, quiet=True)
+        except Exception:
+            pass
 import numpy as np
 import torch
 from sklearn.cluster import KMeans

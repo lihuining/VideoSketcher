@@ -14,6 +14,8 @@ from utils import load_config, seed_everything
 from utils import get_frame_ids, get_latents_dir, load_latent
 from cross_image_utils.model_utils import get_stable_diffusion_model
 from cross_image_utils.CLIP_model import init_clip_model, get_clip_model
+from cross_image_utils import image_utils
+from cross_image_utils.latent_utils import invert_videos_and_image
 
 
 def set_requires_grad(model, value):
@@ -95,6 +97,17 @@ class InversionReconModel:
         if not os.path.exists(latent_path):
             return False
         return True
+
+    def load_latent(self, save_path, choice="content"):
+        latent = torch.load(os.path.join(save_path, f'noisy_latents_{self.timesteps[0].item()}.pt'))
+        noises = []
+        for t in self.timesteps:
+            noise_path = os.path.join(save_path, f'noisy_ddpm_{t}.pt')
+            assert os.path.exists(noise_path), f"Latent at timestep {t} not found in {save_path}."
+            noises.append(torch.load(noise_path))
+        if choice == "style":
+            return latent, torch.cat(noises, dim=0).unsqueeze(0)
+        return latent, torch.stack(noises, dim=1)
 
     def perform_ddpm_step(self, z, latents, t, noise_pred, eta):
         prev_timestep = t - self.scheduler.config.num_train_timesteps // self.scheduler.num_inference_steps
@@ -198,11 +211,11 @@ class InversionReconModel:
         """Invert a single PIL image. Returns (init_latent, noise_maps, wts)."""
         input_tensor = torch.from_numpy(np.array(pil_image)).float().permute(2, 0, 1).unsqueeze(0).to(self.device)
         input_tensor = input_tensor / 127.5 - 1.0  # [0,255] -> [-1,1]
-        return self.invert_tensor(input_tensor, save_path, prompt, cfg_scale)
+        latent = self.encode_imgs(input_tensor)
+        return self.invert_tensor(latent, save_path, prompt, cfg_scale)
 
     def invert_tensor(self, x0, save_path, prompt="", cfg_scale=3.5, save_latents=True):
-        """Invert a batched image tensor x0: [B, C, H, W] in [-1,1] range.
-           If B == 1 (single image), the single-image code path is used.
+        """Invert batched latent tensor x0: [B, 4, 64, 64].
            Returns (init_latent, noise_maps, wts).
         """
         num_inference_steps = self.config.inversion.steps
@@ -278,22 +291,23 @@ class InversionReconModel:
         timesteps = self.scheduler.timesteps.to(self.device)
         xt = xT
         op = tqdm(timesteps[-zs.shape[1]:], desc="Reverse")
-        for t in op:
-            idx = {int(v): k for k, v in enumerate(timesteps[-zs.shape[1]:])}[int(t)]
-            batches = torch.arange(len(xt)).split(self.batch_size, dim=0)
-            noises = []
-            for batch in batches:
-                with torch.no_grad():
-                    uncond_out = model.unet.forward(xt[batch], timestep=t, encoder_hidden_states=uncond_embedding[batch])
-                if prompts:
+        with torch.autocast(device_type=self.device, dtype=self.dtype):
+            for t in op:
+                idx = {int(v): k for k, v in enumerate(timesteps[-zs.shape[1]:])}[int(t)]
+                batches = torch.arange(len(xt)).split(self.batch_size, dim=0)
+                noises = []
+                for batch in batches:
                     with torch.no_grad():
-                        cond_out = model.unet.forward(xt[batch], timestep=t, encoder_hidden_states=text_embeddings[batch])
-                    noise_pred = uncond_out.sample + cfg_scales_tensor * (cond_out.sample - uncond_out.sample)
-                else:
-                    noise_pred = uncond_out.sample
-                noises += [noise_pred]
-            noise_pred = torch.cat(noises)
-            xt = self.perform_ddpm_step(zs[:, idx], xt, t, noise_pred, etas[idx])
+                        uncond_out = model.unet.forward(xt[batch], timestep=t, encoder_hidden_states=uncond_embedding[batch])
+                    if prompts:
+                        with torch.no_grad():
+                            cond_out = model.unet.forward(xt[batch], timestep=t, encoder_hidden_states=text_embeddings[batch])
+                        noise_pred = uncond_out.sample + cfg_scales_tensor * (cond_out.sample - uncond_out.sample)
+                    else:
+                        noise_pred = uncond_out.sample
+                    noises += [noise_pred]
+                noise_pred = torch.cat(noises)
+                xt = self.perform_ddpm_step(zs[:, idx], xt, t, noise_pred, etas[idx])
         return xt
 
     # ------------------------------------------------------------------ #
@@ -307,18 +321,23 @@ class InversionReconModel:
             print("[Style] Latents already exist, skipping inversion.")
             return
 
-        style_pil = Image.open(self.style_data_path).convert("RGB").resize((self.frame_width, self.frame_height))
-        x0 = torch.from_numpy(np.array(style_pil)).float().permute(2, 0, 1).unsqueeze(0).to(self.device)
-        x0 = x0 / 127.5 - 1.0
+        app_image, struct_image = image_utils.load_video_images(self.style_data_path, self.struct_data_path, self.struct_data_path)
 
         print("[Style] Inverting...")
-        wt, zs, wts = self.invert_tensor(x0, save_path, prompt=self.config.inversion.prompt,
-                                          cfg_scale=self.config.cfg_inversion_style)
+        invert_videos_and_image(sd_model=self.pipe,
+                                app_image=app_image,
+                                struct_image_list=struct_image,
+                                prompt=self.prompt,
+                                style_save_path=self.style_save_path,
+                                struct_save_path=self.struct_save_path,
+                                cfg=self.config,
+                                choice="style")
 
         print("[Style] Reconstructing...")
-        latent_recon = self.reverse(xT=wts[:, self.skip_steps], zs=zs[:, self.skip_steps:],
-                                     prompts=[self.config.inversion.prompt],
-                                     cfg_scales=[self.config.cfg_inversion_style])
+        style_init, style_noises = self.load_latent(save_path, choice="style")
+        latent_recon = self.reverse(xT=style_init, zs=style_noises,
+                                    prompts=[self.config.inversion.prompt],
+                                    cfg_scales=[self.config.cfg_inversion_style])
         recon_img = self.decode_latents_batch(latent_recon)
         recon_save_path = os.path.join(save_path, 'recon_frames')
         os.makedirs(recon_save_path, exist_ok=True)
@@ -376,4 +395,5 @@ if __name__ == "__main__":
     end_time = time.time()
     print("total cost time", end_time - start_time)
 
-# python3 inversion.py --config ./configs/iccv/kid-football_video-debug.yaml
+# python3 inversion.py --config ./configs/iccv/kid-football_video.yaml
+# python3 video_stylize.py --config configs/iccv/kid-football_video.yam

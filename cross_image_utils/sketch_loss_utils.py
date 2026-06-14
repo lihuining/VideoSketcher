@@ -42,7 +42,7 @@ def compute_sketch_matching_loss(image1,image2,sparse_matching_lines, sparse_mat
     # 1. 解析 sparse_matching_lines 和 sparse_matching_points
     lines1, lines2 = sparse_matching_lines  # 提取两张图的线段匹配结果
     points1, points2 = sparse_matching_points  # 提取两张图的点匹配结果
-    line_loss = torch.tensor(0.0, dtype=image1.dtype).to("cuda")  # 初始化为张量
+    line_loss = torch.tensor(0.0, dtype=image1.dtype, device=image1.device)  # 初始化为张量
     # 2. 计算线段匹配误差
     if len(lines1) > 0:  # 确保线段不为空
 
@@ -50,8 +50,8 @@ def compute_sketch_matching_loss(image1,image2,sparse_matching_lines, sparse_mat
             # # line1 和 line2 的形状都是 (2, 2)，表示匹配线段的两个端点
             # line_distance = torch.norm(line1 - line2, dim=-1).mean()
             # 采样 line1 和 line2 的点
-            line1_points = sample_line_points(line1[0], line1[1]) # (100,2)
-            line2_points = sample_line_points(line2[0], line2[1]) # (100,2)
+            line1_points = sample_line_points(line1[0], line1[1]).to(image1.device) # (100,2)
+            line2_points = sample_line_points(line2[0], line2[1]).to(image2.device) # (100,2)
             # 将采样点坐标转化为整数索引，便于在图像中查找像素值
             # line1_points = line1_points.to(torch.int)
             # line2_points = line2_points.to(torch.int)
@@ -89,13 +89,13 @@ def compute_sketch_matching_loss(image1,image2,sparse_matching_lines, sparse_mat
         line_loss /= lines1.shape[0]
 
     # 3. 计算点匹配误差
-    point_loss = torch.tensor(0.0, dtype=image1.dtype).to("cuda")
+    point_loss = torch.tensor(0.0, dtype=image1.dtype, device=image1.device)
     if len(points1) > 0:  # 确保点不为空
         for point1, point2 in zip(points1, points2):
             # point1 和 point2 的形状都是 (2,)，表示匹配点的坐标
             # 假设 point1 和 point2 是浮点数列表或数组
-            point1 = torch.as_tensor([int(p) for p in point1])
-            point2 = torch.as_tensor([int(p) for p in point2])
+            point1 = torch.as_tensor([int(p) for p in point1], device=image1.device)
+            point2 = torch.as_tensor([int(p) for p in point2], device=image2.device)
             # point_distance = torch.norm(image1[point1] - image2[point2])
 
             # 使用 .item() 提取具体的 x 和 y 坐标

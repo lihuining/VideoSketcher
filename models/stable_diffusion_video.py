@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from PIL import Image
 import numpy as np
 import torch
+from torch.utils.checkpoint import checkpoint
 from diffusers import StableDiffusionPipeline
 from diffusers.models import AutoencoderKL
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput, StableDiffusionSafetyChecker
@@ -112,18 +113,43 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
                 #     dummy_pred_image_pil = self.image_processor.postprocess(dummy_pred_chunk_decode.detach(), output_type='pil',
                 #                                              do_denormalize=[True] * dummy_pred_chunk_decode.shape[0])  # list:3 pil,detach之后才能转化为numpy
                 #     dummy_pred_image_pil[0].save(os.path.join(matching_save_dir, f"{chunk_index}_{i}_dummy_pred.png"))
-        ## with update
-        if config.update_with_clip or config.update_with_matching:
+        matching_active = (
+            config.update_with_matching
+            and t.item() >= config.update_with_matching_start_time
+            and t.item() <= config.update_with_matching_end_time
+        )
+        clip_active = (
+            config.update_with_clip
+            and t.item() >= config.update_with_clip_start_time
+            and t.item() <= config.update_with_clip_end_time
+        )
+        decode_for_update = matching_active or clip_active
+        if decode_for_update:
             stylized_latents = pred_x0.detach().requires_grad_(True) # pred_x0
             alpha_prod_t = self.scheduler.alphas_cumprod[t]
             beta_prod_t = 1 - alpha_prod_t
             # with torch.no_grad():
-            stylized_image = self.vae.decode(stylized_latents / self.vae.config.scaling_factor, return_dict=False)[0]  # (3,3,512,512) tensor[0,1]
-            stylized_image_tensor = (stylized_image / 2 + 0.5).clamp(0, 1)  # torch.Size([2, 3, 1024, 1024]), [0, 1]
+            use_checkpoint = config.get("matching_vae_checkpoint", True)
+            if config.get("sequential_vae_decode", True):
+                stylized_images = []
+                for stylized_latent in stylized_latents.split(1, dim=0):
+                    latent_input = stylized_latent / self.vae.config.scaling_factor
+                    if use_checkpoint:
+                        stylized_images.append(checkpoint(lambda x: self.vae.decode(x, return_dict=False)[0], latent_input, use_reentrant=False))
+                    else:
+                        stylized_images.append(self.vae.decode(latent_input, return_dict=False)[0])
+                stylized_image = torch.cat(stylized_images, dim=0)  # (chunk_size,3,512,512) tensor[-1,1]
+            else:
+                latent_input = stylized_latents / self.vae.config.scaling_factor
+                if use_checkpoint:
+                    stylized_image = checkpoint(lambda x: self.vae.decode(x, return_dict=False)[0], latent_input, use_reentrant=False)
+                else:
+                    stylized_image = self.vae.decode(latent_input, return_dict=False)[0]
+            stylized_image_tensor = (stylized_image / 2 + 0.5).clamp(0, 1)  # [0, 1]
             ### visualize
             # stylized_image_pil = self.image_processor.postprocess(stylized_image.detach(), output_type='pil',
             #                                              do_denormalize=[True] * stylized_image.shape[0])  # list:3 pil,detach之后才能转化为numpy
-        if config.update_with_clip and t.item() >= config.update_with_clip_start_time and t.item() <= config.update_with_clip_end_time:
+        if clip_active:
             # with torch.no_grad():
             _, content_stylized_image, style_stylized_image = clip_model(stylized_image_tensor)
             for i in range(chunk_size-1):
@@ -132,7 +158,7 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             # for i in range(chunk_size):
             #     loss += config.update_with_clip_guidance * spherical_dist_loss(content_stylized_image[i],
             #                                                                    struct_content[i])
-        if config.update_with_matching and t.item() >= config.update_with_matching_start_time and t.item() <= config.update_with_matching_end_time: # and chunk_index != 0
+        if matching_active: # and chunk_index != 0
 
             # from PIL import Image
             # vis_image = stylized_image.detach().cpu().permute(0, 2, 3, 1).numpy() # (2, 1024, 1024, 3)
@@ -172,6 +198,11 @@ class CrossImageAttentionStableDiffusionVideoPipeline(StableDiffusionPipeline):
             #print("matching strength",cur_matching_strength,"gradient max", torch.max(grads),"gradient min",torch.min(grads),"coefficietnts",torch.sqrt(beta_prod_t))
             # noise_pred= noise_pred - torch.sqrt(beta_prod_t) * grads
             latents = latents - grads
+        if decode_for_update:
+            del stylized_latents, stylized_image, stylized_image_tensor
+            if 'stylized_images' in locals():
+                del stylized_images
+            torch.cuda.empty_cache()
         return noise_pred,latents
     def encode_text(self, prompts,device):
         text_input = self.tokenizer(

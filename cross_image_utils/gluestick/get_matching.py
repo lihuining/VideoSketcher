@@ -16,6 +16,10 @@ import numpy as np
 from PIL import Image
 from typing import Any, Callable, Dict, List, Optional, Union
 
+_PIPELINE_MODEL = None
+_PIPELINE_CACHE_KEY = None
+
+
 def save_grayscale_tensor(tensor, save_path):
     # 检查张量的维度为 (1, 1, H, W)，如果维度不同则调整
     if tensor.dim() == 4 and tensor.size(1) == 1:
@@ -30,6 +34,41 @@ def save_grayscale_tensor(tensor, save_path):
     # 使用 PIL 将 NumPy 数组保存为图像
     Image.fromarray(tensor_np, mode='L').save(save_path)
 
+
+
+def _get_pipeline_model(device, max_pts=1000, max_lines=300):
+    global _PIPELINE_MODEL, _PIPELINE_CACHE_KEY
+    cache_key = (device, max_pts, max_lines)
+    if _PIPELINE_MODEL is not None and _PIPELINE_CACHE_KEY == cache_key:
+        return _PIPELINE_MODEL
+
+    conf = {
+        'name': 'two_view_pipeline',
+        'use_lines': True,
+        'extractor': {
+            'name': 'wireframe',
+            'sp_params': {
+                'force_num_keypoints': False,
+                'max_num_keypoints': max_pts,
+            },
+            'wireframe_params': {
+                'merge_points': True,
+                'merge_line_endpoints': True,
+            },
+            'max_n_lines': max_lines,
+        },
+        'matcher': {
+            'name': 'gluestick',
+            'weights': str(GLUESTICK_ROOT / 'resources' / 'weights' / 'checkpoint_GlueStick_MD.tar'),
+            'trainable': False,
+        },
+        'ground_truth': {
+            'from_pose_depth': False,
+        }
+    }
+    _PIPELINE_MODEL = TwoViewPipeline(conf).to(device).eval()
+    _PIPELINE_CACHE_KEY = cache_key
+    return _PIPELINE_MODEL
 
 
 def get_sparse_matching_results(img1,img2,cal_img1: Optional[torch.FloatTensor] = None,cal_img2: Optional[torch.FloatTensor] = None,max_pts=1000,max_lines=300,timestep=0,save_dir="",chunk_index=0):
@@ -48,36 +87,10 @@ def get_sparse_matching_results(img1,img2,cal_img1: Optional[torch.FloatTensor] 
         if len(img.shape) == 3:
             tensor_list[idx] = img.unsqueeze(0)
     [img1, img2, cal_img1, cal_img2] = tensor_list
-    # Evaluation config
-    conf = {
-        'name': 'two_view_pipeline',
-        'use_lines': True,
-        'extractor': {
-            'name': 'wireframe',
-            'sp_params': {
-                'force_num_keypoints': False,
-                'max_num_keypoints': max_pts,
-            },
-            'wireframe_params': {
-                'merge_points': True,
-                'merge_line_endpoints': True,
-            },
-            'max_n_lines': max_lines,
-        },
-        'matcher': {
-            'name': 'gluestick',
-            # 'weights': str(GLUESTICK_ROOT / 'resources' / 'weights' / 'checkpoint_GlueStick_MD.tar'),
-            'weights': "/media/allenyljiang/564AFA804AFA5BE51/Codes/sparse_matching/GlueStick/resources/weights/checkpoint_GlueStick_MD.tar",
-            'trainable': False,
-        },
-        'ground_truth': {
-            'from_pose_depth': False,
-        }
-    }
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    pipeline_model = TwoViewPipeline(conf).to(device).eval()
+    device = 'cpu'
+    img1_for_matching = img1.detach().to(device)
+    img2_for_matching = img2.detach().to(device)
+    pipeline_model = _get_pipeline_model(device, max_pts=max_pts, max_lines=max_lines)
     # print("matching pipeline requires_grad:", any(param.requires_grad for param in pipeline_model.parameters()))
     # gray0 = cv2.imread(args.img1, 0) # 0表示以灰度模式加载图像
     # gray1 = cv2.imread(args.img2, 0)
@@ -91,14 +104,15 @@ def get_sparse_matching_results(img1,img2,cal_img1: Optional[torch.FloatTensor] 
     weights = torch.tensor([0.299, 0.587, 0.114], device=device,requires_grad=False) # 变为 (3, 1, 1)
 
     # 计算加权和，保留梯度
-    torch_gray0 = torch.tensordot(img1, weights, dims=([1], [0])).unsqueeze(1)  # (N, 1, H, W)
-    torch_gray1 = torch.tensordot(img2, weights, dims=([1], [0])).unsqueeze(1)  # (N, 1, H, W)
+    torch_gray0 = torch.tensordot(img1_for_matching, weights, dims=([1], [0])).unsqueeze(1)  # (N, 1, H, W)
+    torch_gray1 = torch.tensordot(img2_for_matching, weights, dims=([1], [0])).unsqueeze(1)  # (N, 1, H, W)
 
     # torch_gray0, torch_gray1 = numpy_image_to_torch(img1), numpy_image_to_torch(img2)
     # torch_gray0, torch_gray1 = torch_gray0.to(device)[None], torch_gray1.to(device)[None]
     x = {'image0': torch_gray0.clone().detach(), 'image1': torch_gray1.clone().detach()} # 不能干扰原始张量的梯度流,这里的结果之后需要转化为numpy
     #x = {'image0': torch_gray0, 'image1': torch_gray1} # 不能干扰原始张量的梯度流,这里的结果之后需要转化为numpy
-    pred = pipeline_model(x) # tensor
+    with torch.no_grad():
+        pred = pipeline_model(x) # tensor
 
     # pred = batch_to_np(pred)
     pred = batch_to_single(pred)

@@ -1,0 +1,107 @@
+# 模型版本以及路径
+sd_version: "2.1" # In ['2.1', '2.0', '1.5', 'depth']
+model_key: "/media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/stable-diffusion-v1-5"
+# CSD_CLIP 评估模型路径
+csd_clip_vit_path: "./pretrained_models/CSD_Score/ViT-L-14.pt"
+csd_clip_checkpoint_path: "./pretrained_models/CSD_Score/checkpoint.pth"
+# Specify model key. If set, ignore sd_version.
+whether_use_ablation: True
+ablation_key: null
+input_path: "path/to/video" # Accept .mp4, .gif file or a folder with png/jpg sequence
+work_dir: "workdir" # 输入视频保存路径
+
+height: 512
+width: 512
+## cross image attention
+prompt: # 用于masked adain当中分割前景使用
+app_image_path: "./assets/example/sketch.jpg"
+app_image_save_path: "./output/sketch" # 不需要加名字
+struct_image_path: null
+domain_name: 'object'   # 传进去之后是str？
+num_segments: 3  # 聚类的段个数，影响分割结果
+style_domain_name: null
+use_masked_adain: False
+use_adain: False
+num_timesteps: 100
+cross_attn_64_range: [10,90]
+cross_attn_32_range: [10,70]
+adain_range: [20,100]
+use_adaptive_contrast: True
+use_sparse_attention: False
+contrast_strength: 1.67 # 1.67
+swap_guidance_scale: 1.0
+object_noun: null
+style_object_noun: null # object的名词，没有的话使用domain name
+keep_struct: True # inject structure
+keep_struct_end: 61
+#gamma: 0.75
+gamma: 0.6
+gamma_end: 61
+temperature: 1.0
+choice: 'image' # choose for image or video piepeline
+load_latents: True
+cfg_inversion_style: 0.0
+cfg_inversion_contents: 0.0
+# new add
+enable_edit: True
+perform_swap: True # whether to inject style
+perform_cross_frame: True
+vis_intermediate: False # ???
+perform_cross_frame_with_prev: False
+latent_update: True
+update_with_matching: True
+update_with_matching_guidance: 500
+update_with_matching_start_time: 1  # 60
+update_with_matching_end_time: 371
+update_with_clip: False # 使用clip更新latents
+update_with_clip_guidance: 100
+update_with_clip_start_time: 1  # 60
+update_with_clip_end_time: 371
+start_frame: 0 # 指定生成的时候加载的起始帧
+use_edge: True
+edge_method: 'teed'
+## register attention control
+up_layers_start_index: 4 # 指定使用query保持的层，len(model_self.up_layers) >= model_self.up_layers_start_index
+cond_layer: 7
+cur_mode: 'invert_recon' # generation ???
+## ddpm inversion参数
+inversion:
+  skip_steps: 32
+#  output_path: "${work_dir}"
+  save_path: "${work_dir}/latents"
+  prompt: "a photo of an object"
+  n_frames: null # null for inverting all frames,指定inversion过程总共使用的帧数,主函数当中指定加载的数量
+  steps: 100 # Inversion steps
+  save_intermediate: True # Save intermediate latents. all timesteps
+  recon: True # Reconstruct the input video from inverted latents.
+  batch_size: 4 # batch_size for chunk
+  force: False # Force run inversion even inverted latents have been found
+  # float_precision: "fp32" # "fp16" or "fp32"
+
+generation: # 主要使用frame_range，frame_ids，chunk_size三个变量
+  chunk_size: 3 # 生成时候的chunk
+  # Sample args:
+  guidance_scale: 7.5 # CFG scale
+  n_timesteps: 50
+  negative_prompt: "ugly, blurry, low res"
+  prompt: null
+    # style: "xxx"
+    # object: "xxx"
+    # background: "xxx"
+
+  latents_path: "${work_dir}/latents"
+  output_path: "${work_dir}"
+
+  frame_range: [0, 32, 1] # start, end, interval. == [0, 32] == [32]
+  frame_ids: null # Specify frame indexes to edit. It will override frame_range.
+  save_frame: True
+
+
+generate_type: "video" # generate image or video type
+images_save_dir: "/media/allenyljiang/2CD8318DD83155F4/CVPR2025/images_save_dir"
+seed: 42
+device: "cuda"
+# base_config: "configs/default.yaml" # Set a base config file here
+float_precision: "fp32" # "fp16" or "fp32"
+enable_xformers_memory_efficient_attention: True
+# /media/allenyljiang/5234E69834E67DFB/StableDiffusion_Models/lllyasviel/control_v11f1p_sd15_depth

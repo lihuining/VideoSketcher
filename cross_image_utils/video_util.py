@@ -93,28 +93,47 @@ def Pic2Video():
 def frame_to_video(video_path: str, frame_dir: str,target_size = (512,512), fps=10, log=False,frame_count=100,start_frame=0):
 
     first_img = True
-    writer = imageio.get_writer(video_path, format='FFMPEG', fps=fps)
-
     file_list = sorted(os.listdir(frame_dir))[start_frame:frame_count]
+    frame_paths = []
     for file_name in file_list:
-        # if not (file_name.endswith('jpg') or file_name.endswith('png')):
         if not any(file_name.lower().endswith(ext) for ext in image_extensions):
             continue
         if file_name == "combined.png":
             continue
+        frame_paths.append(os.path.join(frame_dir, file_name))
 
-        fn = os.path.join(frame_dir, file_name)
-        curImg = imageio.imread(fn)
+    if not frame_paths:
+        print(f"[WARNING] No frames found in {frame_dir}, skip video writing.")
+        return
 
-        if first_img:
-            H, W = curImg.shape[0:2]
-            if log:
-                print('img shape', (H, W))
-            first_img = False
-        curImg = cv2.resize(curImg, target_size, interpolation=cv2.INTER_AREA)
-        writer.append_data(curImg)
-
-    writer.close()
+    try:
+        writer = imageio.get_writer(video_path, format='FFMPEG', fps=fps)
+        for fn in frame_paths:
+            curImg = imageio.imread(fn)
+            if first_img:
+                H, W = curImg.shape[0:2]
+                if log:
+                    print('img shape', (H, W))
+                first_img = False
+            curImg = cv2.resize(curImg, target_size, interpolation=cv2.INTER_AREA)
+            writer.append_data(curImg)
+        writer.close()
+    except ImportError as exc:
+        print(f"[WARNING] imageio FFMPEG is unavailable ({exc}). Falling back to OpenCV VideoWriter.")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(video_path, fourcc, fps, target_size)
+        for fn in frame_paths:
+            curImg = cv2.imread(fn)
+            if curImg is None:
+                continue
+            if first_img:
+                H, W = curImg.shape[0:2]
+                if log:
+                    print('img shape', (H, W))
+                first_img = False
+            curImg = cv2.resize(curImg, target_size, interpolation=cv2.INTER_AREA)
+            writer.write(curImg)
+        writer.release()
 
 
 def get_fps(video_path: str):

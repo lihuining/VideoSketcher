@@ -75,7 +75,7 @@ Run DDIM inversion and reconstruction to validate latent quality:
 
 ```bash
 conda activate videosketcher
-python3 inversion.py --config configs/kid-football_video.yaml
+python3 inversion.py --config configs/example.yaml
 ```
 
 Output paths:
@@ -88,7 +88,7 @@ Set `input_path` and `app_image_path` in the config, then run:
 
 ```bash
 conda activate videosketcher
-python3 video_stylize.py --config configs/kid-football_video.yaml
+python3 video_stylize.py --config configs/example.yaml
 ```
 
 Output (under `{work_dir}/{video_name}/{style_name}/`):

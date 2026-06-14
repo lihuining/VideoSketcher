@@ -7,22 +7,25 @@ from models.stable_diffusion_video_wo_cfg import CrossImageAttentionStableDiffus
 from models.unet_2d_condition import FreeUUNet2DConditionModel
 
 
-def get_stable_diffusion_model(sd_version="1.5",choice="video") -> CrossImageAttentionStableDiffusionPipeline:
+def get_stable_diffusion_model(sd_version="1.5",choice="video",model_id=None) -> CrossImageAttentionStableDiffusionPipeline:
     print("Loading Stable Diffusion model...")
     start_time = time.time()
     device = torch.device(f'cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model_id = "StableDiffusion_Models/stable-diffusion-v1-5"
+    # [b1,b2,s1,s2]
     if sd_version == "1.5":
-        model_id = "StableDiffusion_Models/stable-diffusion-v1-5"
-        # [b1,b2,s1,s2]
         free_u = [1.5,1.6,0.9,0.2]
         # free_u = [1.2,1.4,0.9,0.2] # 原始参数
-    if sd_version == "2.1":
-        model_id = "StableDiffusion_Models/stable-diffusion-2-1-base"
+    elif sd_version == "2.1":
         free_u = [1.4,1.6,0.9,0.2]
-    if sd_version == "sdxl":
-        model_id = "StableDiffusion_Models/stabilityai/stable-diffusion-xl-base-1.0"
+    elif sd_version == "sdxl":
         free_u = [1.3,1.4,0.9,0.2]
+    if model_id is None:
+        if sd_version == "1.5":
+            model_id = "stable-diffusion-v1-5"
+        elif sd_version == "2.1":
+            model_id = "/root/paddlejob/workspace/output/models/Manojb/stable-diffusion-2-1-base"
+        elif sd_version == "sdxl":
+            model_id = "stabilityai/stable-diffusion-xl-base-1.0"
     # if sd_version == "2.0":
     #     model_id = ""
     if choice == "video":
